@@ -10,6 +10,9 @@ import CoreLocation
 import UIKit
 
 class IdentificationManager: ObservableObject {
+    static let shared = IdentificationManager()
+
+    private init() {}
 
     // MARK: - Aircraft Identification (User-Initiated)
     func identifyAircraft(metadata: CaptureMetadata) async throws -> [Aircraft] {
@@ -681,6 +684,149 @@ class IdentificationManager: ObservableObject {
         let elevationAngleDegrees = elevationAngleRadians * 180.0 / .pi
 
         return elevationAngleDegrees
+    }
+
+    // MARK: - Version 1.1: Tap-to-Identify Integration
+    func identifyObjects(
+        image: UIImage,
+        metadata: CaptureMetadata,
+        tapLocation: CGPoint,
+        captureMode: CaptureMode
+    ) async throws -> (buildings: [Building], aircraft: [Aircraft]) {
+
+        print("🎯 Starting tap-to-identify for \(captureMode.rawValue)")
+        print("🎯 Tap location: \(tapLocation) in image size: \(image.size)")
+        print("📍 User location: \(metadata.gpsCoordinate)")
+        print("🧭 Camera heading: \(metadata.heading)°")
+
+        var buildings: [Building] = []
+        var aircraft: [Aircraft] = []
+
+        switch captureMode {
+        case .landmark:
+            // Use existing building identification with enhanced targeting
+            buildings = try await identifyBuildingsWithTap(
+                image: image,
+                metadata: metadata,
+                tapLocation: tapLocation
+            )
+
+        case .aircraft:
+            // Use existing aircraft identification with tap-based refinement
+            aircraft = try await identifyAircraftWithTap(
+                image: image,
+                metadata: metadata,
+                tapLocation: tapLocation
+            )
+
+        case .boat:
+            // Future implementation for marine vessel identification
+            print("🚢 Boat identification not yet implemented")
+        }
+
+        print("✅ Tap-to-identify completed: \(buildings.count) buildings, \(aircraft.count) aircraft")
+        return (buildings: buildings, aircraft: aircraft)
+    }
+
+    // MARK: - Enhanced Building Identification with Tap Location
+    private func identifyBuildingsWithTap(
+        image: UIImage,
+        metadata: CaptureMetadata,
+        tapLocation: CGPoint
+    ) async throws -> [Building] {
+
+        print("🎯 Using existing identifyBuilding method with tap location")
+
+        // Use the existing identifyBuilding method that already supports tap points
+        return try await identifyBuilding(
+            tapPoint: tapLocation,
+            imageSize: image.size,
+            metadata: metadata,
+            capturedImage: image
+        )
+    }
+
+    // MARK: - Enhanced Aircraft Identification with Tap Location
+    private func identifyAircraftWithTap(
+        image: UIImage,
+        metadata: CaptureMetadata,
+        tapLocation: CGPoint
+    ) async throws -> [Aircraft] {
+
+        // Calculate bearing from tap location for more precise aircraft targeting
+        let targetBearing = calculateBearingFromTap(
+            tapPoint: tapLocation,
+            imageSize: image.size,
+            metadata: metadata
+        )
+
+        // Calculate elevation angle from tap Y position
+        let tapElevation = calculateElevationFromTap(
+            tapPoint: tapLocation,
+            imageSize: image.size,
+            metadata: metadata
+        )
+
+        print("🎯 Target bearing: \(targetBearing)°, elevation: \(tapElevation)°")
+
+        // Use existing aircraft identification
+        let allAircraft = try await identifyAircraft(metadata: metadata)
+
+        // Filter aircraft based on tap location (bearing + elevation)
+        let tapBearingTolerance = max(10.0, metadata.effectiveFieldOfView / 4.0) // Wider tolerance for aircraft
+        let elevationTolerance: Double = 20.0 // degrees
+
+        let targetAircraft = allAircraft.filter { aircraft in
+            let aircraftBearing = calculateBearing(from: metadata.gpsCoordinate, to: aircraft.coordinate)
+            let bearingDiff = abs(targetBearing - aircraftBearing)
+            let normalizedBearingDiff = min(bearingDiff, 360 - bearingDiff)
+
+            // Calculate aircraft elevation angle
+            let aircraftElevation = calculateElevationAngle(
+                userLocation: metadata.gpsCoordinate,
+                userAltitude: metadata.altitude,
+                aircraftLocation: aircraft.coordinate,
+                aircraftAltitude: aircraft.altitude * 0.3048 // Convert feet to meters
+            )
+
+            let elevationDiff = abs(tapElevation - aircraftElevation)
+
+            let bearingMatch = normalizedBearingDiff <= tapBearingTolerance
+            let elevationMatch = elevationDiff <= elevationTolerance
+
+            print("✈️ \(aircraft.flightNumber ?? "Unknown"): bearing diff \(normalizedBearingDiff)°, elevation diff \(elevationDiff)°")
+
+            return bearingMatch && elevationMatch
+        }
+
+        print("✈️ Found \(targetAircraft.count) aircraft near tap location")
+
+        // Sort by distance and return closest matches
+        return Array(targetAircraft.sorted {
+            ($0.distance ?? Double.greatestFiniteMagnitude) < ($1.distance ?? Double.greatestFiniteMagnitude)
+        }.prefix(2))
+    }
+
+    // MARK: - Helper Methods for Tap-to-Identify
+    private func calculateElevationFromTap(
+        tapPoint: CGPoint,
+        imageSize: CGSize,
+        metadata: CaptureMetadata
+    ) -> Double {
+        // Calculate elevation based on Y position in image
+        let normalizedY = tapPoint.y / imageSize.height // 0 = top, 1 = bottom
+        let centerY = 0.5
+        let yOffset = normalizedY - centerY // -0.5 to 0.5
+
+        // Approximate vertical field of view (typically ~75% of horizontal FOV)
+        let verticalFOV = metadata.effectiveFieldOfView * 0.75
+        let elevationOffset = yOffset * verticalFOV
+
+        // Base elevation is current camera pitch, offset by tap position
+        let tapElevation = metadata.pitch - elevationOffset // Negative because Y increases downward
+
+        print("📐 Tap elevation: \(tapElevation)° (pitch: \(metadata.pitch)°, offset: \(elevationOffset)°)")
+        return tapElevation
     }
 }
 

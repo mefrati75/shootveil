@@ -346,7 +346,7 @@ struct ResultsView: View {
 
         Task {
             do {
-                let buildings = try await IdentificationManager().identifyBuilding(
+                let buildings = try await IdentificationManager.shared.identifyBuilding(
                     tapPoint: tapPoint,
                     imageSize: imageSize,
                     metadata: metadata,
@@ -377,7 +377,7 @@ struct ResultsView: View {
         }
 
         do {
-            let aircraft = try await IdentificationManager().identifyAircraft(metadata: metadata)
+            let aircraft = try await IdentificationManager.shared.identifyAircraft(metadata: metadata)
 
             await MainActor.run {
                 if aircraft.count > 1 {

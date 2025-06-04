@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import CoreLocation
+import AVFoundation
 
 // MARK: - Capture Mode Enum
 enum CaptureMode: String, CaseIterable {
@@ -414,6 +416,16 @@ struct EnhancedCameraView: View {
     @State private var lastScaleValue: CGFloat = 1.0
     @State private var accumulatedZoom: CGFloat = 1.0
 
+    // MARK: - Version 1.1: Tap-to-Identify State Variables
+    @State private var showingObjectSelection = false
+    @State private var capturedImageForSelection: UIImage?
+    @State private var capturedMetadataForSelection: CaptureMetadata?
+    @State private var objectTapLocation: CGPoint?
+    @State private var isProcessingIdentification = false
+    @State private var processingProgress: Double = 0.0
+    @State private var processingStatus = ""
+    @State private var showingTapIndicator = false
+
     init(historyManager: CaptureHistoryManager, captureMode: CaptureMode, onHomeRequested: @escaping () -> Void) {
         self.historyManager = historyManager
         self.captureMode = captureMode
@@ -554,9 +566,45 @@ struct EnhancedCameraView: View {
                 )
             }
         }
+        // MARK: - Version 1.1: Object Selection Sheet
+        .fullScreenCover(isPresented: $showingObjectSelection) {
+            if let image = capturedImageForSelection,
+               let metadata = capturedMetadataForSelection {
+                ObjectSelectionView(
+                    capturedImage: image,
+                    metadata: metadata,
+                    captureMode: captureMode,
+                    onDismiss: {
+                        showingObjectSelection = false
+                        capturedImageForSelection = nil
+                        capturedMetadataForSelection = nil
+                        objectTapLocation = nil
+                    },
+                    onIdentificationComplete: { result in
+                        // Handle successful identification
+                        showingObjectSelection = false
+
+                        // Navigate to results with enhanced data
+                        cameraManager.capturedImage = image
+                        cameraManager.capturedMetadata = metadata
+                        showingResultsView = true
+                    },
+                    historyManager: historyManager
+                )
+            }
+        }
         .onChange(of: cameraManager.capturedImage) { oldValue, newValue in
             if newValue != nil {
-                showingResultsView = true
+                // Version 1.1: Check if we should go to object selection or direct results
+                if let metadata = cameraManager.capturedMetadata {
+                    // Store for object selection
+                    capturedImageForSelection = newValue
+                    capturedMetadataForSelection = metadata
+                    showingObjectSelection = true
+                } else {
+                    // Fallback to original flow
+                    showingResultsView = true
+                }
             }
         }
     }
@@ -994,6 +1042,383 @@ struct PermissionRow: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(10)
+    }
+}
+
+// MARK: - Version 1.1: Object Selection View
+struct ObjectSelectionView: View {
+    let capturedImage: UIImage
+    let metadata: CaptureMetadata
+    let captureMode: CaptureMode
+    let onDismiss: () -> Void
+    let onIdentificationComplete: (IdentificationResult) -> Void
+    @ObservedObject var historyManager: CaptureHistoryManager
+
+    @State private var objectTapLocation: CGPoint?
+    @State private var isProcessing = false
+    @State private var processingProgress: Double = 0.0
+    @State private var processingStatus = ""
+    @State private var showingTapIndicator = false
+    @State private var tapIndicatorLocation: CGPoint = .zero
+    @StateObject private var identificationManager = IdentificationManager.shared
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                GeometryReader { geometry in
+                    VStack(spacing: 0) {
+                        // Image section - 70% of screen height
+                        ZStack {
+                            Image(uiImage: capturedImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipped()
+                                .onTapGesture { location in
+                                    handleImageTap(at: location, in: geometry)
+                                }
+
+                            // Center crosshair indicator (same as camera view)
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    ZStack {
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.8), lineWidth: 2)
+                                            .frame(width: 60, height: 60)
+
+                                        Circle()
+                                            .stroke(Color.red.opacity(0.6), lineWidth: 1)
+                                            .frame(width: 30, height: 30)
+
+                                        // Center dot
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 4, height: 4)
+
+                                        // Cross lines
+                                        Rectangle()
+                                            .fill(Color.white.opacity(0.8))
+                                            .frame(width: 20, height: 1)
+
+                                        Rectangle()
+                                            .fill(Color.white.opacity(0.8))
+                                            .frame(width: 1, height: 20)
+                                    }
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .allowsHitTesting(false)
+
+                            // Tap indicator
+                            if showingTapIndicator {
+                                TapIndicatorView()
+                                    .position(tapIndicatorLocation)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showingTapIndicator)
+                            }
+                        }
+                        .frame(height: geometry.size.height * 0.7)
+                        .background(Color.black)
+
+                        // Instructions/Processing section - 30% of screen height
+                        VStack(spacing: 16) {
+                            if isProcessing {
+                                ProcessingView(
+                                    progress: processingProgress,
+                                    status: processingStatus
+                                )
+                            } else {
+                                InstructionView(captureMode: captureMode)
+                            }
+                        }
+                        .frame(height: geometry.size.height * 0.3)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(.systemBackground))
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("What is it?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("← Back") {
+                        onDismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    private func handleImageTap(at location: CGPoint, in geometry: GeometryProxy) {
+        guard !isProcessing else { return }
+
+        print("🎯 User tapped at location: \(location)")
+
+        // Store tap location and show indicator
+        objectTapLocation = location
+        tapIndicatorLocation = location
+        showingTapIndicator = true
+
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        // Start identification process
+        startIdentification(at: location, in: geometry)
+    }
+
+    private func startIdentification(at tapLocation: CGPoint, in geometry: GeometryProxy) {
+        isProcessing = true
+        processingProgress = 0.0
+
+        // Animate processing steps
+        animateProcessingSteps()
+
+        // Calculate object marking relative to image
+        let imageFrame = calculateImageFrame(in: geometry)
+        let relativeLocation = convertTapToImageCoordinates(
+            tapLocation: tapLocation,
+            imageFrame: imageFrame,
+            imageSize: capturedImage.size
+        )
+
+        print("🎯 Relative tap location in image: \(relativeLocation)")
+
+        // Use IdentificationManager for real processing
+        Task {
+            do {
+                let results = try await identificationManager.identifyObjects(
+                    image: capturedImage,
+                    metadata: metadata,
+                    tapLocation: relativeLocation,
+                    captureMode: captureMode
+                )
+
+                await MainActor.run {
+                    isProcessing = false
+                    showingTapIndicator = false
+
+                    // Success haptic feedback
+                    let successFeedback = UINotificationFeedbackGenerator()
+                    successFeedback.notificationOccurred(.success)
+
+                    // For now, call completion (results will be handled in ResultsView)
+                    onIdentificationComplete(IdentificationResult(
+                        id: UUID().uuidString,
+                        type: captureMode == .landmark ? .landmark : .aircraft,
+                        confidence: 0.95,
+                        name: "Sample Result",
+                        description: "Description for tapped object",
+                        distance: 100.0,
+                        additionalInfo: [:],
+                        timestamp: Date()
+                    ))
+                }
+            } catch {
+                await MainActor.run {
+                    isProcessing = false
+                    showingTapIndicator = false
+
+                    // Error haptic feedback
+                    let errorFeedback = UINotificationFeedbackGenerator()
+                    errorFeedback.notificationOccurred(.error)
+
+                    print("❌ Identification failed: \(error)")
+                    // Show error and allow retry
+                    processingStatus = "Identification failed. Tap to try again."
+                }
+            }
+        }
+    }
+
+    private func animateProcessingSteps() {
+        let steps = [
+            (0.3, "🔍 Calculating distance..."),
+            (0.6, "📍 Finding location..."),
+            (0.9, "🔎 Identifying object...")
+        ]
+
+        var currentStep = 0
+
+        func animateNextStep() {
+            guard currentStep < steps.count else {
+                processingProgress = 1.0
+                processingStatus = "Almost done..."
+                return
+            }
+
+            let (progress, message) = steps[currentStep]
+            processingProgress = progress
+            processingStatus = message
+
+            currentStep += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                animateNextStep()
+            }
+        }
+
+        animateNextStep()
+    }
+
+    private func calculateImageFrame(in geometry: GeometryProxy) -> CGRect {
+        let containerSize = CGSize(width: geometry.size.width, height: geometry.size.height * 0.7)
+        let imageSize = capturedImage.size
+        let aspectRatio = imageSize.width / imageSize.height
+
+        let containerAspectRatio = containerSize.width / containerSize.height
+
+        if aspectRatio > containerAspectRatio {
+            // Image is wider than container
+            let scaledHeight = containerSize.width / aspectRatio
+            let yOffset = (containerSize.height - scaledHeight) / 2
+            return CGRect(x: 0, y: yOffset, width: containerSize.width, height: scaledHeight)
+        } else {
+            // Image is taller than container
+            let scaledWidth = containerSize.height * aspectRatio
+            let xOffset = (containerSize.width - scaledWidth) / 2
+            return CGRect(x: xOffset, y: 0, width: scaledWidth, height: containerSize.height)
+        }
+    }
+
+    private func convertTapToImageCoordinates(tapLocation: CGPoint, imageFrame: CGRect, imageSize: CGSize) -> CGPoint {
+        // Convert tap location relative to the displayed image to actual image coordinates
+        let relativeX = (tapLocation.x - imageFrame.minX) / imageFrame.width
+        let relativeY = (tapLocation.y - imageFrame.minY) / imageFrame.height
+
+        // Clamp to image bounds
+        let clampedX = max(0, min(1, relativeX))
+        let clampedY = max(0, min(1, relativeY))
+
+        // Convert to actual image pixel coordinates
+        return CGPoint(
+            x: clampedX * imageSize.width,
+            y: clampedY * imageSize.height
+        )
+    }
+}
+
+// MARK: - Supporting Views for Object Selection
+
+struct TapIndicatorView: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.red, lineWidth: 3)
+                .frame(width: 50, height: 50)
+                .scaleEffect(isAnimating ? 1.5 : 1.0)
+                .opacity(isAnimating ? 0.0 : 1.0)
+
+            Circle()
+                .fill(Color.red.opacity(0.3))
+                .frame(width: 20, height: 20)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.6)) {
+                isAnimating = true
+            }
+        }
+    }
+}
+
+struct ProcessingView: View {
+    let progress: Double
+    let status: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                Text("AI Analysis")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("\(Int(progress * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            ProgressView(value: progress, total: 1.0)
+                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                .scaleEffect(y: 2.0) // Make it thicker
+
+            Text(status)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .animation(.easeInOut, value: status)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+struct InstructionView: View {
+    let captureMode: CaptureMode
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: captureMode.icon)
+                    .foregroundColor(captureMode.color)
+                    .font(.title2)
+                Text("Select Target")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("👆 Tap on the \(captureMode.title.lowercased()) you want to identify")
+                    .font(.body)
+                    .fontWeight(.medium)
+
+                Text(getInstructionText())
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+
+    private func getInstructionText() -> String {
+        switch captureMode {
+        case .landmark:
+            return "Tap on buildings, monuments, or landmarks in your photo for detailed information."
+        case .aircraft:
+            return "Tap on aircraft in the sky to get flight information and details."
+        case .boat:
+            return "Tap on boats or ships to identify vessel information."
+        }
+    }
+}
+
+// MARK: - Camera Permission Manager
+class CameraPermissionManager: ObservableObject {
+    @Published var permissionStatus: AVAuthorizationStatus = .notDetermined
+
+    func requestPermission() {
+        AVCaptureDevice.requestAccess(for: .video) { _ in
+            DispatchQueue.main.async {
+                self.permissionStatus = AVCaptureDevice.authorizationStatus(for: .video)
+            }
+        }
+    }
+
+    func checkPermission() {
+        permissionStatus = AVCaptureDevice.authorizationStatus(for: .video)
     }
 }
 

@@ -586,7 +586,6 @@ struct AuthenticationFlow: View {
         NavigationView {
             if showingSignUp {
                 SignUpView(
-                    authManager: AuthenticationManager.shared,
                     onSuccess: onAuthenticationSuccess,
                     onSwitchToSignIn: {
                         showingSignUp = false
@@ -1496,6 +1495,9 @@ struct SignUpView: View {
     @State private var showPasswordRequirements = false
     @FocusState private var focusedField: Field?
 
+    // Add haptic feedback generator
+    private let hapticFeedback = UINotificationFeedbackGenerator()
+
     enum Field: Hashable {
         case name, email, phoneNumber, password, confirmPassword
     }
@@ -1956,9 +1958,15 @@ struct SignUpView: View {
                     return
                 }
 
-                guard let result = result,
-                      let user = result.user,
-                      let profile = user.profile else {
+                guard let result = result else {
+                    print("❌ Failed to get Google Sign-In result")
+                    self.errorMessage = "Failed to get Google Sign-In result"
+                    self.showingError = true
+                    return
+                }
+
+                let user = result.user
+                guard let profile = user.profile else {
                     print("❌ Failed to get user profile from Google")
                     self.errorMessage = "Failed to get user profile from Google"
                     self.showingError = true
@@ -1990,7 +1998,7 @@ struct SignUpView: View {
                             print("❌ Google account creation failed: \(error.localizedDescription)")
                             self.errorMessage = "Account creation failed: \(error.localizedDescription)"
                             self.showingError = true
-                            self.hapticFeedback.notificationOccurred(.error)
+                            hapticFeedback.notificationOccurred(.error)
                         }
                     }
                 }
