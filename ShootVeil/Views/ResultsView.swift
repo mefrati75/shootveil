@@ -15,6 +15,7 @@ struct ResultsView: View {
     let metadata: CaptureMetadata
     let captureMode: CaptureMode
     let onDismiss: () -> Void
+    @ObservedObject var historyManager: CaptureHistoryManager
 
     @State private var buildingResults: [Building] = []
     @State private var aircraftResults: [Aircraft] = []
@@ -450,9 +451,9 @@ struct ResultsView: View {
 
     private func saveToHistory() {
         let distanceValue = estimatedTargetDistance ?? 0.0
-        let historyItem = CaptureHistoryItem(
-            id: UUID(),
-            timestamp: metadata.timestamp,
+
+        print("💾 Saving capture to history...")
+        historyManager.addCapture(
             image: capturedImage,
             metadata: metadata,
             buildingResults: buildingResults,
@@ -461,10 +462,7 @@ struct ResultsView: View {
             targetLocationAddress: targetLocationAddress,
             estimatedTargetDistance: distanceValue
         )
-
-        // Use the instance from ContentView since CaptureHistoryManager doesn't have a shared instance
-        // This will be passed down from the parent view
-        print("💾 Saved capture to history")
+        print("✅ Capture saved to history successfully")
     }
 
     // MARK: - Helper Functions
@@ -1505,7 +1503,8 @@ struct ActivityView: UIViewControllerRepresentable {
                 effectiveFieldOfView: 68.0
             ),
             captureMode: .landmark,
-            onDismiss: {}
+            onDismiss: {},
+            historyManager: CaptureHistoryManager()
         )
     }
 }

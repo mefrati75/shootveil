@@ -7,6 +7,10 @@
 
 import SwiftUI
 import LocalAuthentication
+import CoreLocation
+import Photos
+import GoogleSignIn
+import GoogleSignInSwift
 
 struct SettingsView: View {
     @State private var showingPlanSelection = false
@@ -115,7 +119,7 @@ struct SettingsView: View {
                         HStack {
                             Text("Version")
                             Spacer()
-                            Text("1.1")
+                            Text("1.0.0")
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -244,7 +248,7 @@ class AuthenticationManager: ObservableObject {
         }
     }
 
-    func signUp(name: String, email: String, password: String) async throws {
+    func signUp(name: String, email: String, password: String, phoneNumber: String? = nil) async throws {
         // Simulate API call delay
         try await Task.sleep(for: .seconds(2))
 
@@ -259,6 +263,13 @@ class AuthenticationManager: ObservableObject {
 
         guard isStrongPassword(password) else {
             throw AuthError.weakPassword
+        }
+
+        // Validate phone number if provided
+        if let phone = phoneNumber, !phone.isEmpty {
+            guard isValidPhoneNumber(phone) else {
+                throw AuthError.invalidPhone
+            }
         }
 
         // In real app, create account on server
@@ -278,7 +289,8 @@ class AuthenticationManager: ObservableObject {
                 email: email,
                 name: name,
                 joinDate: Date(),
-                subscriptionTier: .free
+                subscriptionTier: .free,
+                phoneNumber: phoneNumber
             )
         }
     }
@@ -338,6 +350,42 @@ class AuthenticationManager: ObservableObject {
         currentUser = nil
     }
 
+    func signUpWithGoogle(name: String, email: String, googleID: String) async throws {
+        // Simulate API call delay
+        try await Task.sleep(for: .seconds(1.5))
+
+        // Validation
+        guard !name.isEmpty, !email.isEmpty, !googleID.isEmpty else {
+            throw AuthError.invalidInput
+        }
+
+        guard isValidEmail(email) else {
+            throw AuthError.invalidEmail
+        }
+
+        // In real app, create account on server with Google credentials
+
+        await MainActor.run {
+            // Store Google authentication data
+            try? keychain.store(password: googleID, for: "\(email)_google")
+
+            // Store non-sensitive data
+            storedEmail = email
+            storedName = name
+            lastLoginTimestamp = Date().timeIntervalSince1970
+
+            // Update state
+            isAuthenticated = true
+            currentUser = UserAccount(
+                email: email,
+                name: name,
+                joinDate: Date(),
+                subscriptionTier: .free,
+                authProvider: .google
+            )
+        }
+    }
+
     // MARK: - Helper Methods
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
@@ -355,6 +403,14 @@ class AuthenticationManager: ObservableObject {
     private func extractNameFromEmail(_ email: String) -> String {
         let username = email.components(separatedBy: "@").first ?? ""
         return username.capitalized.replacingOccurrences(of: ".", with: " ")
+    }
+
+    private func isValidPhoneNumber(_ phone: String) -> Bool {
+        // Remove all non-digit characters for validation
+        let digitsOnly = phone.filter { $0.isNumber }
+
+        // Check if it's a valid length (10-15 digits for international numbers)
+        return digitsOnly.count >= 10 && digitsOnly.count <= 15
     }
 }
 
@@ -460,6 +516,7 @@ enum AuthError: LocalizedError {
     case biometricNotEnabled
     case biometricFailed
     case notSignedIn
+    case invalidPhone
 
     var errorDescription: String? {
         switch self {
@@ -481,6 +538,8 @@ enum AuthError: LocalizedError {
             return "Biometric authentication failed"
         case .notSignedIn:
             return "Please sign in first"
+        case .invalidPhone:
+            return "Invalid phone number format"
         }
     }
 
@@ -504,6 +563,17 @@ struct UserAccount {
     let name: String
     let joinDate: Date
     let subscriptionTier: SubscriptionTier
+    let phoneNumber: String?
+    let authProvider: AuthProvider?
+
+    init(email: String, name: String, joinDate: Date, subscriptionTier: SubscriptionTier, phoneNumber: String? = nil, authProvider: AuthProvider? = nil) {
+        self.email = email
+        self.name = name
+        self.joinDate = joinDate
+        self.subscriptionTier = subscriptionTier
+        self.phoneNumber = phoneNumber
+        self.authProvider = authProvider
+    }
 }
 
 // MARK: - Authentication Flow
@@ -516,6 +586,7 @@ struct AuthenticationFlow: View {
         NavigationView {
             if showingSignUp {
                 SignUpView(
+                    authManager: AuthenticationManager.shared,
                     onSuccess: onAuthenticationSuccess,
                     onSwitchToSignIn: {
                         showingSignUp = false
@@ -707,10 +778,15 @@ struct SignInView: View {
                 Spacer()
 
                 Button("Next") {
-                    if focusedField == .email {
+                    switch focusedField {
+                    case .email:
                         focusedField = .password
-                    } else {
+                    case .password:
                         focusedField = nil
+                    case .none:
+                        break
+                    default:
+                        break
                     }
                 }
                 .disabled(focusedField == .password)
@@ -1408,6 +1484,7 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
+    @State private var phoneNumber = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showingError = false
@@ -1415,11 +1492,12 @@ struct SignUpView: View {
     @State private var emailValidationError: String?
     @State private var passwordValidationError: String?
     @State private var confirmPasswordValidationError: String?
+    @State private var phoneValidationError: String?
     @State private var showPasswordRequirements = false
     @FocusState private var focusedField: Field?
 
     enum Field: Hashable {
-        case name, email, password, confirmPassword
+        case name, email, phoneNumber, password, confirmPassword
     }
 
     var body: some View {
@@ -1444,8 +1522,61 @@ struct SignUpView: View {
                 }
                 .padding(.top, 40)
 
-                // Form
+                // Google Sign-In Section
+                VStack(spacing: 16) {
+                    Text("Quick Sign Up")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 32)
+
+                    // Google Sign-In Button
+                    Button(action: signInWithGoogle) {
+                        HStack {
+                            Image(systemName: "globe")
+                                .foregroundColor(.white)
+                                .font(.title2)
+
+                            Text("Continue with Google")
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.systemBlue))
+                        .cornerRadius(12)
+                    }
+                    .disabled(isLoading)
+                    .padding(.horizontal, 32)
+                    .accessibilityLabel("Sign up with Google")
+                    .accessibilityHint("Create account using your Google account")
+
+                    // Divider
+                    HStack {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 1)
+
+                        Text("or")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
+
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 1)
+                    }
+                    .padding(.horizontal, 32)
+                }
+
+                // Manual Form Section
                 VStack(spacing: 20) {
+                    Text("Manual Sign Up")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 32)
+
                     // Name Field
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Full Name")
@@ -1495,6 +1626,45 @@ struct SignUpView: View {
                                 .font(.caption)
                                 .foregroundColor(.red)
                                 .accessibilityLabel("Email validation error: \(emailError)")
+                        }
+                    }
+
+                    // Phone Number Field (Optional)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Phone Number")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+
+                            Text("(Optional)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.gray.opacity(0.2))
+                                .cornerRadius(4)
+                        }
+
+                        TextField("Enter your phone number", text: $phoneNumber)
+                            .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .focused($focusedField, equals: .phoneNumber)
+                            .textFieldStyle(AuthTextFieldStyle(hasError: phoneValidationError != nil))
+                            .onChange(of: phoneNumber) { oldValue, newValue in
+                                validatePhoneNumber()
+                            }
+                            .accessibilityLabel("Phone number")
+                            .accessibilityHint("Enter your phone number for account recovery")
+
+                        if let phoneError = phoneValidationError {
+                            Text(phoneError)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .accessibilityLabel("Phone validation error: \(phoneError)")
+                        } else if phoneNumber.isEmpty {
+                            Text("Used for account recovery and important notifications")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
 
@@ -1647,6 +1817,8 @@ struct SignUpView: View {
                     case .name:
                         focusedField = .email
                     case .email:
+                        focusedField = .phoneNumber
+                    case .phoneNumber:
                         focusedField = .password
                     case .password:
                         focusedField = .confirmPassword
@@ -1685,7 +1857,8 @@ struct SignUpView: View {
         nameValidationError == nil &&
         emailValidationError == nil &&
         passwordValidationError == nil &&
-        confirmPasswordValidationError == nil
+        confirmPasswordValidationError == nil &&
+        phoneValidationError == nil
     }
 
     private var currentAuthError: AuthError? {
@@ -1710,6 +1883,23 @@ struct SignUpView: View {
             emailValidationError = "Please enter a valid email address"
         } else {
             emailValidationError = nil
+        }
+    }
+
+    private func validatePhoneNumber() {
+        if phoneNumber.isEmpty {
+            phoneValidationError = nil
+        } else {
+            // Remove all non-digit characters for validation
+            let digitsOnly = phoneNumber.filter { $0.isNumber }
+
+            if digitsOnly.count < 10 {
+                phoneValidationError = "Phone number must be at least 10 digits"
+            } else if digitsOnly.count > 15 {
+                phoneValidationError = "Phone number is too long"
+            } else {
+                phoneValidationError = nil
+            }
         }
     }
 
@@ -1739,6 +1929,75 @@ struct SignUpView: View {
         }
     }
 
+    private func signInWithGoogle() {
+        print("🔐 Starting Google Sign-In process")
+        isLoading = true
+
+        // Get the presenting view controller using modern iOS approach
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+              let window = windowScene.windows.first,
+              let presentingViewController = window.rootViewController else {
+            print("❌ Could not get presenting view controller")
+            isLoading = false
+            return
+        }
+
+        // Perform Google Sign-In
+        GIDSignIn.sharedInstance.signIn(withPresenting: presentingViewController) { result, error in
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                if let error = error {
+                    print("❌ Google Sign-In error: \(error.localizedDescription)")
+                    self.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
+                    self.showingError = true
+                    return
+                }
+
+                guard let result = result,
+                      let user = result.user,
+                      let profile = user.profile else {
+                    print("❌ Failed to get user profile from Google")
+                    self.errorMessage = "Failed to get user profile from Google"
+                    self.showingError = true
+                    return
+                }
+
+                print("✅ Google Sign-In successful for: \(profile.email)")
+
+                // Store user data
+                let name = profile.name
+                let email = profile.email
+                let googleID = user.userID ?? ""
+
+                // Call authentication manager
+                Task {
+                    do {
+                        try await authManager.signUpWithGoogle(
+                            name: name,
+                            email: email,
+                            googleID: googleID
+                        )
+
+                        await MainActor.run {
+                            hapticFeedback.notificationOccurred(.success)
+                            print("🎉 Google account creation successful")
+                        }
+                    } catch {
+                        await MainActor.run {
+                            print("❌ Google account creation failed: \(error.localizedDescription)")
+                            self.errorMessage = "Account creation failed: \(error.localizedDescription)"
+                            self.showingError = true
+                            self.hapticFeedback.notificationOccurred(.error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func signUp() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1750,7 +2009,12 @@ struct SignUpView: View {
 
         Task {
             do {
-                try await authManager.signUp(name: name, email: email, password: password)
+                try await authManager.signUp(
+                    name: name,
+                    email: email,
+                    password: password,
+                    phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber
+                )
                 await MainActor.run {
                     isLoading = false
                     // Success haptic feedback
@@ -1917,6 +2181,24 @@ struct RequirementRow: View {
             Spacer()
         }
         .accessibilityLabel("\(text): \(isMet ? "met" : "not met")")
+    }
+}
+
+// MARK: - Auth Provider Enum
+enum AuthProvider {
+    case email
+    case google
+    case apple
+
+    var displayName: String {
+        switch self {
+        case .email:
+            return "Email"
+        case .google:
+            return "Google"
+        case .apple:
+            return "Apple"
+        }
     }
 }
 

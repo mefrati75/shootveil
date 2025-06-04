@@ -48,7 +48,7 @@ enum CaptureMode: String, CaseIterable {
     var isAvailable: Bool {
         switch self {
         case .landmark, .aircraft: return true
-        case .boat: return false
+        case .boat: return false  // Back to coming soon
         }
     }
 }
@@ -490,7 +490,14 @@ struct EnhancedCameraView: View {
                         cameraManager: cameraManager,
                         locationManager: locationManager,
                         captureMode: captureMode,
-                        onCapture: isRunningOnSimulator ? simulatePhotoCapture : { cameraManager.capturePhoto() },
+                        onCapture: {
+                            // Normal capture for all modes
+                            if isRunningOnSimulator {
+                                simulatePhotoCapture()
+                            } else {
+                                cameraManager.capturePhoto()
+                            }
+                        },
                         onHome: onHomeRequested
                     )
                 }
@@ -542,7 +549,8 @@ struct EnhancedCameraView: View {
                         showingResultsView = false
                         cameraManager.capturedImage = nil
                         cameraManager.capturedMetadata = nil
-                    }
+                    },
+                    historyManager: historyManager
                 )
             }
         }
@@ -866,24 +874,42 @@ struct CameraPreviewView: UIViewRepresentable {
         let view = UIView()
         view.backgroundColor = UIColor.black
 
-        // Setup preview layer
-        DispatchQueue.main.async {
-            cameraManager.previewLayer.frame = view.bounds
-            if cameraManager.previewLayer.superlayer == nil {
-                view.layer.addSublayer(cameraManager.previewLayer)
-            }
-        }
+        print("📺 Creating camera preview view")
 
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
+        // Always update the preview layer connection
         DispatchQueue.main.async {
-            cameraManager.previewLayer.frame = uiView.bounds
+            let previewLayer = cameraManager.previewLayer
 
-            // Ensure preview layer is added and visible
-            if cameraManager.previewLayer.superlayer != uiView.layer {
-                uiView.layer.addSublayer(cameraManager.previewLayer)
+            // Only proceed if the view has proper dimensions
+            guard uiView.bounds.width > 0 && uiView.bounds.height > 0 else {
+                print("📺 Waiting for proper view layout - bounds: \(uiView.bounds)")
+
+                // Schedule another update when layout is complete
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.updateUIView(uiView, context: context)
+                }
+                return
+            }
+
+            // Set frame to match view bounds
+            previewLayer.frame = uiView.bounds
+
+            // Remove from any existing superlayer first
+            previewLayer.removeFromSuperlayer()
+
+            // Add to the current view
+            uiView.layer.addSublayer(previewLayer)
+
+            print("📺 Preview layer updated: frame=\(previewLayer.frame), session=\(previewLayer.session != nil ? "connected" : "nil")")
+
+            // Force the layer to update if session is running
+            if cameraManager.isSessionRunning && cameraManager.captureSession.isRunning {
+                previewLayer.connection?.isEnabled = true
+                print("📺 Preview connection enabled for running session")
             }
         }
     }

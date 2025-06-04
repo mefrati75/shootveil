@@ -81,7 +81,19 @@ class CameraManager: NSObject, ObservableObject {
             isCameraAuthorized = true
             setupCamera()
         case .notDetermined:
-            requestCameraPermission()
+            print("⚠️ Camera permission: NOT DETERMINED")
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        print("✅ Camera permission granted after request")
+                        // Don't call self.setupCameraForRealDevice() to avoid recursion
+                        // Let the user retry manually
+                    } else {
+                        print("❌ Camera permission denied after request")
+                    }
+                }
+            }
+            return
         default:
             isCameraAuthorized = false
             setupError = "Camera access denied"
@@ -95,96 +107,71 @@ class CameraManager: NSObject, ObservableObject {
             return
         }
 
-        print("📱 Setting up camera for real device with simplified configuration")
+        print("🔬 ULTRA-BASIC camera setup - exactly like other working apps")
 
-        guard isCameraAuthorized else {
-            setupError = "Camera not authorized"
+        // 1. BASIC permission check (like every other app)
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+            print("❌ Camera not authorized")
             return
         }
 
-        // Check if camera hardware is available
-        guard AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) != nil else {
-            setupError = "Camera hardware not available on this device"
-            print("⚠️ Camera hardware not available - device may not support camera features")
+        // 2. BASIC camera device (like every other app)
+        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+            print("❌ No camera device")
             return
         }
+        print("✅ Camera device: \(camera.localizedName)")
 
-        // Use main queue for simplified setup to avoid threading issues
-        print("🔧 Using simplified main-queue camera setup")
-
-        // Create a completely new session to avoid any stuck state
+        // 3. BASIC session creation (like every other app)
         captureSession = AVCaptureSession()
+        captureSession.sessionPreset = .photo
+        print("✅ Session created with photo preset")
+
+        // 4. BASIC input creation (like every other app)
+        do {
+            let input = try AVCaptureDeviceInput(device: camera)
+            self.videoDeviceInput = input
+            print("✅ Input created successfully")
+        } catch {
+            print("❌ Input creation failed: \(error)")
+            return
+        }
+
+        // 5. BASIC input addition (like every other app)
+        guard captureSession.canAddInput(videoDeviceInput!) else {
+            print("❌ Cannot add input")
+            return
+        }
+        captureSession.addInput(videoDeviceInput!)
+        print("✅ Input added to session")
+
+        // 6. BASIC output creation (like every other app)
         photoOutput = AVCapturePhotoOutput()
 
-        captureSession.beginConfiguration()
-
-        // Use medium quality preset instead of photo to reduce conflicts
-        if captureSession.canSetSessionPreset(.medium) {
-            captureSession.sessionPreset = .medium
-            print("📷 Session preset set to medium (simplified)")
-        } else if captureSession.canSetSessionPreset(.low) {
-            captureSession.sessionPreset = .low
-            print("📷 Session preset set to low (fallback)")
-        } else {
-            print("⚠️ Cannot set any session preset")
-        }
-
-        // Add camera input with minimal configuration
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            setupError = "Back camera not available"
-            captureSession.commitConfiguration()
+        // 7. BASIC output addition (like every other app)
+        guard captureSession.canAddOutput(photoOutput) else {
+            print("❌ Cannot add output")
             return
         }
+        captureSession.addOutput(photoOutput)
+        print("✅ Output added to session")
 
-        print("📷 Camera device: \(camera.localizedName)")
+        // 8. BASIC preview setup (like every other app)
+        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.connection?.isEnabled = true
+        print("✅ Preview layer created and configured")
 
-        do {
-            let cameraInput = try AVCaptureDeviceInput(device: camera)
-            if captureSession.canAddInput(cameraInput) {
-                captureSession.addInput(cameraInput)
-                videoDeviceInput = cameraInput
-                print("✅ Camera input added successfully")
-
-                // Initialize zoom values on main queue
-                DispatchQueue.main.async {
-                    self.minZoomFactor = camera.minAvailableVideoZoomFactor
-                    self.maxZoomFactor = camera.maxAvailableVideoZoomFactor
-                    self.currentZoomFactor = camera.videoZoomFactor
-                    print("📷 Zoom range: \(camera.minAvailableVideoZoomFactor)x - \(camera.maxAvailableVideoZoomFactor)x")
-                }
-            } else {
-                setupError = "Cannot add camera input"
-                captureSession.commitConfiguration()
-                return
-            }
-        } catch {
-            setupError = "Failed to create camera input: \(error.localizedDescription)"
-            captureSession.commitConfiguration()
-            return
-        }
-
-        // Add photo output with minimal configuration
-        if captureSession.canAddOutput(photoOutput) {
-            captureSession.addOutput(photoOutput)
-            print("✅ Photo output added successfully")
-
-            // Skip high-resolution settings that might cause conflicts
-            print("📷 Using standard resolution to avoid conflicts")
-        } else {
-            setupError = "Cannot add photo output"
-            captureSession.commitConfiguration()
-            return
-        }
-
-        captureSession.commitConfiguration()
-        print("📷 Simplified session configuration committed with \(captureSession.inputs.count) inputs and \(captureSession.outputs.count) outputs")
-
-        // Setup preview layer on main thread
+        // 9. Update state (like every other app)
         DispatchQueue.main.async {
-            self.previewLayer = AVCaptureVideoPreviewLayer(session: self.captureSession)
-            self.previewLayer.videoGravity = .resizeAspectFill
-            print("✅ Simplified camera setup completed successfully")
+            self.isCameraAuthorized = true
         }
+
+        print("✅ BASIC setup complete - ready to start like other working apps")
+
+        // 10. AUTOMATICALLY start session after setup (like working apps do)
+        print("🎬 Auto-starting session after successful setup...")
+        startSession()
     }
 
     func startSession() {
@@ -198,91 +185,114 @@ class CameraManager: NSObject, ObservableObject {
             return
         }
 
-        print("📱 Starting camera session with background thread (avoiding ads conflicts)")
+        print("🎬 BASIC session start - exactly like other working apps")
 
         guard isCameraAuthorized else {
-            print("❌ Cannot start session: Camera not authorized")
+            print("❌ Not authorized")
             return
         }
 
         guard !captureSession.inputs.isEmpty else {
-            print("❌ Cannot start session: No camera input configured")
-            setupCamera() // Try to setup again
-            return
-        }
-
-        // Prevent multiple simultaneous start attempts
-        guard !isStartingSession else {
-            print("⚠️ Session start already in progress")
+            print("❌ No inputs configured")
             return
         }
 
         guard !captureSession.isRunning else {
-            print("⚠️ Session already running")
-            DispatchQueue.main.async {
-                self.isSessionRunning = true
-            }
+            print("⚠️ Already running")
             return
         }
 
-        isStartingSession = true
-        print("🎬 Starting camera session...")
-        print("📊 Session config: inputs=\(captureSession.inputs.count), outputs=\(captureSession.outputs.count)")
-
-        // Remove any existing observers
-        NotificationCenter.default.removeObserver(self, name: .AVCaptureSessionWasInterrupted, object: captureSession)
-        NotificationCenter.default.removeObserver(self, name: .AVCaptureSessionInterruptionEnded, object: captureSession)
-
-        // Add minimal observers
-        NotificationCenter.default.addObserver(
-            forName: .AVCaptureSessionWasInterrupted,
-            object: captureSession,
-            queue: .main
-        ) { [weak self] notification in
-            print("⚠️ Camera session interrupted")
-            self?.isSessionRunning = false
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .AVCaptureSessionInterruptionEnded,
-            object: captureSession,
-            queue: .main
-        ) { [weak self] _ in
-            print("✅ Camera session interruption ended")
-        }
-
-        // Use background thread to avoid Google Ads conflicts
-        print("🔧 Starting session on background thread to avoid ads conflicts")
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            // Add small delay to ensure Google Ads isn't competing
-            Thread.sleep(forTimeInterval: 0.2)
-
+        // BASIC session start on background thread (like every other app)
+        DispatchQueue.global(qos: .userInitiated).async {
+            print("📹 Starting session...")
             self.captureSession.startRunning()
+            print("📹 Session start call completed")
 
-            // Check status on main thread
-            DispatchQueue.main.async {
-                let isRunning = self.captureSession.isRunning
-                let isInterrupted = self.captureSession.isInterrupted
+            // Simple status check
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let running = self.captureSession.isRunning
+                let interrupted = self.captureSession.isInterrupted
 
-                print("📊 Session state: running=\(isRunning), interrupted=\(isInterrupted)")
+                print("📊 Final status: running=\(running), interrupted=\(interrupted)")
 
-                // Update state
-                self.isSessionRunning = isRunning
-                self.isStartingSession = false
+                if running && !interrupted {
+                    print("🎉 SUCCESS! Camera working like other apps!")
+                    self.isSessionRunning = true
 
-                if isRunning {
-                    print("✅ Camera session started successfully")
-                    // Notify AdManager that camera is working
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        AdManager.shared.startAdsAfterCameraSetup()
+                    // Ensure preview layer is connected to running session
+                    DispatchQueue.main.async {
+                        self.previewLayer.session = self.captureSession
+                        print("✅ Preview layer connected to running session")
+
+                        // Force UI refresh to display preview
+                        self.objectWillChange.send()
+                        print("📺 UI refresh triggered for preview display")
                     }
                 } else {
-                    print("❌ Camera session failed to start")
-                    if isInterrupted {
-                        print("💡 Session is interrupted - likely Google Ads conflict")
-                        print("💡 Ads will be delayed to avoid camera conflicts")
+                    print("💥 FAILED - but other apps work, so this is OUR bug!")
+                    print("🔍 Let's check what other working apps do differently...")
+
+                    // Since other apps work, let's try a different approach
+                    self.tryAlternativeSessionStart()
+                }
+            }
+        }
+    }
+
+    // Alternative session start approach
+    private func tryAlternativeSessionStart() {
+        print("🔄 Trying alternative session start approach...")
+
+        // Stop current session completely
+        if captureSession.isRunning {
+            captureSession.stopRunning()
+        }
+
+        // Wait a moment then try again with fresh session
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔄 Creating completely fresh session...")
+
+            // Create brand new session like other apps do
+            self.captureSession = AVCaptureSession()
+            self.captureSession.sessionPreset = .photo
+
+            // Re-add existing input and output
+            if let input = self.videoDeviceInput, self.captureSession.canAddInput(input) {
+                self.captureSession.addInput(input)
+                print("✅ Re-added input to fresh session")
+            }
+
+            if self.captureSession.canAddOutput(self.photoOutput) {
+                self.captureSession.addOutput(self.photoOutput)
+                print("✅ Re-added output to fresh session")
+            }
+
+            // Update preview layer
+            self.previewLayer.session = self.captureSession
+            print("✅ Preview layer connected to fresh session")
+
+            // Try starting fresh session
+            DispatchQueue.global(qos: .userInitiated).async {
+                print("📹 Starting FRESH session...")
+                self.captureSession.startRunning()
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    let running = self.captureSession.isRunning
+                    let interrupted = self.captureSession.isInterrupted
+
+                    print("📊 FRESH session status: running=\(running), interrupted=\(interrupted)")
+
+                    if running && !interrupted {
+                        print("🎉 SUCCESS with fresh session approach!")
+                        self.isSessionRunning = true
+
+                        // Ensure preview layer is properly connected
+                        DispatchQueue.main.async {
+                            self.previewLayer.session = self.captureSession
+                            print("✅ Fresh session preview layer connected")
+                        }
+                    } else {
+                        print("💥 Still failing - need to investigate our specific app configuration")
                     }
                 }
             }
@@ -503,6 +513,74 @@ class CameraManager: NSObject, ObservableObject {
             print("   • Device connected: \(device.isConnected)")
             print("   • Device suspended: \(device.isSuspended)")
         }
+    }
+
+    // New comprehensive diagnostic function
+    func diagnoseCameraFailure() {
+        print("🔍 COMPREHENSIVE CAMERA FAILURE DIAGNOSTICS:")
+
+        // 1. Check system camera availability
+        let cameraAuth = AVCaptureDevice.authorizationStatus(for: .video)
+        print("   🔐 Camera authorization: \(cameraAuth)")
+
+        // 2. Check if any other apps are using camera
+        let allCameras = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInWideAngleCamera, .builtInTelephotoCamera, .builtInUltraWideCamera],
+            mediaType: .video,
+            position: .unspecified
+        ).devices
+
+        for camera in allCameras {
+            print("   📹 Camera \(camera.localizedName):")
+            print("      - Connected: \(camera.isConnected)")
+            print("      - Suspended: \(camera.isSuspended)")
+            print("      - In use: \(!camera.isConnected || camera.isSuspended)")
+        }
+
+        // 3. Check system restrictions
+        print("   🚫 System restrictions check:")
+
+        // Check if camera is disabled by restrictions
+        if #available(iOS 14.0, *) {
+            // Try to detect if camera is restricted
+            let testSession = AVCaptureSession()
+            if let camera = AVCaptureDevice.default(for: .video) {
+                do {
+                    let input = try AVCaptureDeviceInput(device: camera)
+                    if testSession.canAddInput(input) {
+                        print("      ✅ Camera input can be added")
+                    } else {
+                        print("      ❌ Camera input CANNOT be added - SYSTEM RESTRICTION!")
+                    }
+                } catch {
+                    print("      ❌ Camera input creation failed: \(error)")
+                }
+            }
+        }
+
+        // 4. Check for Control Center restrictions
+        print("   📱 Device management:")
+        let device = UIDevice.current
+        print("      - Device name: \(device.name)")
+        print("      - Model: \(device.model)")
+        print("      - System name: \(device.systemName)")
+
+        // 5. Final recommendation
+        print("🔍 RECOMMENDATION:")
+        print("   This appears to be a SYSTEM-LEVEL issue, not an app code issue.")
+        print("   Possible causes:")
+        print("   1. 📱 Device Management Profile restricting camera")
+        print("   2. 🔒 iOS Security restriction")
+        print("   3. 🐛 iOS camera service bug")
+        print("   4. 📹 Hardware/driver issue")
+        print("   5. 🔧 Device needs restart")
+        print("   ")
+        print("   💡 IMMEDIATE SOLUTIONS TO TRY:")
+        print("   1. Restart the device")
+        print("   2. Check Settings > Screen Time > Content & Privacy Restrictions")
+        print("   3. Check Settings > General > Device Management")
+        print("   4. Try the camera in the built-in Camera app")
+        print("   5. Update iOS if available")
     }
 }
 

@@ -19,310 +19,177 @@ class AdManager: NSObject, ObservableObject {
     @Published var adError: String?
     @Published var isAdMobInitialized = false
 
+    private var appOpenAd: AppOpenAd?
     private var interstitialAd: InterstitialAd?
     private var rewardedAd: RewardedAd?
-    private var appOpenAd: AppOpenAd?
-
-    // Ad Unit IDs - Now using production IDs
-    struct AdUnitIDs {
-        static let isTestMode = false // Set to true for testing, false for production
-
-        // Test Ad Unit IDs (for development)
-        private static let testAppOpenAdUnitID = "ca-app-pub-3940256099942544/5662855259"
-        private static let testInterstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"
-        private static let testRewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"
-        private static let testBannerAdUnitID = "ca-app-pub-3940256099942544/2934735716"
-
-        // Production Ad Unit IDs
-        private static let prodAppOpenAdUnitID = "ca-app-pub-7699624044669714/9325122370"
-        private static let prodInterstitialAdUnitID = "ca-app-pub-7699624044669714/2345678901"
-        private static let prodRewardedAdUnitID = "ca-app-pub-7699624044669714/4567890123"
-        private static let prodBannerAdUnitID = "ca-app-pub-7699624044669714/3456789012"
-
-        // Current Ad Unit IDs based on mode
-        static var appOpenAdUnitID: String {
-            isTestMode ? testAppOpenAdUnitID : prodAppOpenAdUnitID
-        }
-
-        static var interstitialAdUnitID: String {
-            isTestMode ? testInterstitialAdUnitID : prodInterstitialAdUnitID
-        }
-
-        static var rewardedAdUnitID: String {
-            isTestMode ? testRewardedAdUnitID : prodRewardedAdUnitID
-        }
-
-        static var bannerAdUnitID: String {
-            isTestMode ? testBannerAdUnitID : prodBannerAdUnitID
-        }
-    }
-
-    private var loadTime = Date()
-
-    // Production App ID
-    private let appID = "ca-app-pub-7699624044669714~9188572768"
-
-    // Delay ads initialization to avoid camera conflicts
-    private var adsInitializationDelay: Double = 5.0 // 5 seconds delay
 
     override init() {
         super.init()
-        print("📱 Initializing AdManager")
-
-        // Delay ads initialization to avoid camera conflicts
-        DispatchQueue.main.asyncAfter(deadline: .now() + adsInitializationDelay) {
-            self.initializeAdMob()
-        }
+        print("📱 AdManager: Initializing Google Mobile Ads")
+        initializeAdMob()
     }
 
     private func initializeAdMob() {
-        print("📱 Starting delayed AdMob initialization")
-
-        // Configure request settings to avoid camera/microphone conflicts
-        let requestConfiguration = MobileAds.shared.requestConfiguration
-
-        // Disable ad formats that might use camera/microphone
-        requestConfiguration.maxAdContentRating = .general
-
-        MobileAds.shared.start { [weak self] initializationStatus in
+        MobileAds.shared.start { [weak self] status in
             DispatchQueue.main.async {
                 self?.isAdMobInitialized = true
-                print("✅ AdMob initialized successfully")
-
-                // Load ads after successful initialization
-                self?.loadInitialAds()
+                print("✅ AdMob initialization completed")
+                self?.loadAppOpenAd()
             }
         }
     }
-
-    private func loadInitialAds() {
-        // Load banner and interstitial ads first (safer)
-        loadInterstitialAd()
-
-        // Delay app open ads even more to ensure camera is working
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            self.loadAppOpenAd()
-        }
-    }
-
-    // Method to safely start ads after camera is working
-    func startAdsAfterCameraSetup() {
-        guard isAdMobInitialized else { return }
-
-        print("📱 Starting ads after camera setup confirmed")
-        loadAppOpenAd()
-    }
-
-    // MARK: - App Open Ads
-    private var appOpenAdLoadTime: Date?
 
     func loadAppOpenAd() {
-        print("📱 Loading App Open Ad")
+        guard isAdMobInitialized else { return }
+
+        let adUnitID = "ca-app-pub-3940256099942544/5662855259" // Test Ad Unit ID
+
         let request = Request()
+        AppOpenAd.load(with: adUnitID, request: request) { [weak self] ad, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ App Open Ad failed to load: \(error.localizedDescription)")
+                    self?.adError = error.localizedDescription
+                    return
+                }
 
-        AppOpenAd.load(
-            with: AdUnitIDs.appOpenAdUnitID,
-            request: request
-        ) { [weak self] ad, error in
-            if let error = error {
-                print("❌ Failed to load app open ad: \(error.localizedDescription)")
-                self?.adError = error.localizedDescription
-                return
+                self?.appOpenAd = ad
+                self?.isAdLoaded = true
+                print("✅ App Open Ad loaded successfully")
             }
-
-            print("✅ App Open Ad loaded successfully")
-            self?.appOpenAd = ad
-            self?.appOpenAd?.fullScreenContentDelegate = self
-            self?.appOpenAdLoadTime = Date()
-            self?.isAdLoaded = true
         }
     }
 
     func showAppOpenAd() {
-        guard let ad = appOpenAd,
+        guard let appOpenAd = appOpenAd,
               let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("❌ Unable to present app open ad")
-            loadAppOpenAd() // Try to load a new ad
+            print("❌ No App Open Ad available or no root view controller")
             return
         }
 
-        ad.present(from: rootViewController)
+        appOpenAd.present(from: rootViewController)
+        self.appOpenAd = nil
+        self.isAdLoaded = false
+
+        // Load next ad
+        loadAppOpenAd()
     }
 
-    // MARK: - Interstitial Ads
     func loadInterstitialAd() {
-        print("📱 Loading Interstitial Ad")
+        guard isAdMobInitialized else { return }
+
+        let adUnitID = "ca-app-pub-3940256099942544/1033173712" // Test Ad Unit ID
+
         let request = Request()
+        InterstitialAd.load(with: adUnitID, request: request) { [weak self] ad, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Interstitial Ad failed to load: \(error.localizedDescription)")
+                    self?.adError = error.localizedDescription
+                    return
+                }
 
-        InterstitialAd.load(
-            with: AdUnitIDs.interstitialAdUnitID,
-            request: request
-        ) { [weak self] ad, error in
-            if let error = error {
-                print("❌ Failed to load interstitial ad: \(error.localizedDescription)")
-                self?.adError = error.localizedDescription
-                return
+                self?.interstitialAd = ad
+                print("✅ Interstitial Ad loaded successfully")
             }
-
-            print("✅ Interstitial Ad loaded successfully")
-            self?.interstitialAd = ad
-            self?.interstitialAd?.fullScreenContentDelegate = self
-            self?.isAdLoaded = true
         }
     }
 
     func showInterstitialAd() {
-        guard let ad = interstitialAd,
+        guard let interstitialAd = interstitialAd,
               let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("❌ Unable to present interstitial ad")
-            loadInterstitialAd() // Try to load a new ad
+            print("❌ No Interstitial Ad available or no root view controller")
             return
         }
 
-        ad.present(from: rootViewController)
+        interstitialAd.present(from: rootViewController)
+        self.interstitialAd = nil
+
+        // Load next ad
+        loadInterstitialAd()
     }
 
-    // MARK: - Rewarded Ads
     func loadRewardedAd() {
-        print("📱 Loading Rewarded Ad")
+        guard isAdMobInitialized else { return }
+
+        let adUnitID = "ca-app-pub-3940256099942544/1712485313" // Test Ad Unit ID
+
         let request = Request()
+        RewardedAd.load(with: adUnitID, request: request) { [weak self] ad, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Rewarded Ad failed to load: \(error.localizedDescription)")
+                    self?.adError = error.localizedDescription
+                    return
+                }
 
-        RewardedAd.load(
-            with: AdUnitIDs.rewardedAdUnitID,
-            request: request
-        ) { [weak self] ad, error in
-            if let error = error {
-                print("❌ Failed to load rewarded ad: \(error.localizedDescription)")
-                self?.adError = error.localizedDescription
-                return
+                self?.rewardedAd = ad
+                print("✅ Rewarded Ad loaded successfully")
             }
-
-            print("✅ Rewarded Ad loaded successfully")
-            self?.rewardedAd = ad
-            self?.rewardedAd?.fullScreenContentDelegate = self
-            self?.isAdLoaded = true
         }
     }
 
     func showRewardedAd(completion: @escaping (Bool) -> Void) {
-        guard let ad = rewardedAd,
+        guard let rewardedAd = rewardedAd,
               let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("❌ Unable to present rewarded ad")
-            loadRewardedAd() // Try to load a new ad
+            print("❌ No Rewarded Ad available or no root view controller")
             completion(false)
             return
         }
 
-        ad.present(from: rootViewController) { [weak self] in
-            print("✅ User earned reward")
+        rewardedAd.present(from: rootViewController, userDidEarnRewardHandler: {
+            let reward = rewardedAd.adReward
+            print("✅ User earned reward: \(reward.amount) \(reward.type)")
             completion(true)
-            self?.loadRewardedAd() // Load the next rewarded ad
-        }
-    }
+        })
 
-    // MARK: - Banner Ads
-    private var bannerView: BannerView?
+        self.rewardedAd = nil
 
-    func createBannerView() -> BannerView {
-        let bannerView = BannerView(adSize: AdSizeBanner)
-        bannerView.adUnitID = AdUnitIDs.bannerAdUnitID
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            bannerView.rootViewController = rootViewController
-        }
-        return bannerView
+        // Load next ad
+        loadRewardedAd()
     }
 
     func loadBannerAd() {
-        print("📱 Loading Banner Ad")
-        let request = Request()
-        bannerView = createBannerView()
-        bannerView?.load(request)
-    }
-}
-
-// MARK: - Full Screen Content Delegate
-extension AdManager: FullScreenContentDelegate {
-    func adDidRecordImpression(_ ad: FullScreenPresentingAd) {
-        print("✅ Ad did record impression")
+        print("📱 Banner ad loading requested")
     }
 
-    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
-        print("✅ Ad dismissed")
-        isShowingAd = false
-        loadNextAd(for: ad)
-    }
-
-    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
-        print("❌ Ad failed to present with error: \(error.localizedDescription)")
-        adError = error.localizedDescription
-        loadNextAd(for: ad)
-    }
-
-    private func loadNextAd(for ad: FullScreenPresentingAd) {
-        switch ad {
-        case is InterstitialAd:
-            loadInterstitialAd()
-        case is RewardedAd:
-            loadRewardedAd()
-        case is AppOpenAd:
-            loadAppOpenAd()
-        default:
-            break
-        }
-    }
-}
-
-// MARK: - Banner View Delegate
-extension AdManager: BannerViewDelegate {
-    func bannerViewDidReceiveAd(_ bannerView: BannerView) {
-        print("✅ Banner ad loaded successfully")
-        isAdLoaded = true
-    }
-
-    func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
-        print("❌ Banner ad failed to load with error: \(error.localizedDescription)")
-        adError = error.localizedDescription
-    }
-}
-
-// MARK: - Ad Integration Extensions
-extension AdManager {
-    // Show ad after certain number of identifications
     func shouldShowAdAfterIdentification(count: Int) -> Bool {
-        // Show ad every 3 identifications for ad-supported tier
+        // Show ad every 3 identifications
         return count > 0 && count % 3 == 0
     }
 
-    // Show rewarded ad for extra identifications
     func offerRewardedAdForExtraIdentification(completion: @escaping (Bool) -> Void) {
-        showRewardedAd { success in
-            print("🎁 AdManager: User earned extra identification!")
-            completion(success)
-        }
+        // Show rewarded ad for bonus identification
+        showRewardedAd(completion: completion)
     }
 
-    // Check if app open ad should be shown (on app launch)
     func shouldShowAppOpenAd() -> Bool {
-        // Don't show if already showing an ad
-        return !isShowingAd
+        return isAdLoaded && appOpenAd != nil
+    }
+
+    func startAdsAfterCameraSetup() {
+        print("📱 Starting ads after camera setup")
+        // Load initial ads
+        loadInterstitialAd()
+        loadRewardedAd()
     }
 }
 
 // MARK: - SwiftUI Banner Ad View
 struct BannerAdView: UIViewRepresentable {
-    @StateObject private var adManager = AdManager.shared
-
     func makeUIView(context: Context) -> BannerView {
-        let bannerView = adManager.createBannerView()
-        bannerView.delegate = adManager
+        let bannerView = BannerView(adSize: AdSizeBanner)
+        bannerView.adUnitID = "ca-app-pub-3940256099942544/2934735716" // Test Ad Unit ID
 
-        // Load the banner ad
-        adManager.loadBannerAd()
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            bannerView.rootViewController = rootViewController
+        }
 
+        bannerView.load(Request())
         return bannerView
     }
 
