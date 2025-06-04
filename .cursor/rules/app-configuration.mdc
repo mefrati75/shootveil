@@ -1,0 +1,72 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - Configuration & Deployment
+
+## App Configuration Files
+
+### Entitlements & Permissions
+Reference [ShootVeil.entitlements](mdc:ShootVeil/ShootVeil.entitlements) for app capabilities:
+- Camera access for photo capture functionality
+- Network client access for API communications
+- WebKit processes for potential web-based content
+- Application groups for data sharing between extensions
+- Location services for GPS functionality
+
+### App Information
+Reference [Info.plist](mdc:ShootVeil/Info.plist) for app metadata and permissions:
+- Maintain proper bundle identifiers and versioning
+- Include clear privacy usage descriptions for all permissions
+- Configure supported device orientations appropriately
+- Set proper URL schemes for deep linking if needed
+- Include background modes for location services
+
+## Permission Management
+Always request permissions with clear context and user benefit explanation:
+
+### Camera Permission
+- Request when user first attempts to take a photo
+- Explain how camera is used for landmark/aircraft identification
+- Provide fallback functionality if permission denied
+- Guide users to Settings if permission needs to be re-enabled
+
+### Location Permission
+- Request when user first attempts identification
+- Explain how location improves identification accuracy
+- Handle both "When In Use" and "Always" permission levels
+- Provide degraded functionality without location access
+
+### Network Access
+- Handle network permission for API communications
+- Provide offline functionality where possible
+- Explain data usage for API calls
+- Handle network restrictions and cellular data limitations
+
+## Build Configuration
+- Maintain separate configurations for Debug/Release builds
+- Use proper code signing and provisioning profiles
+- Include appropriate build settings for performance optimization
+- Configure proper App Store deployment settings
+
+## Privacy & Compliance
+- Include proper privacy policy links
+- Handle data collection and usage transparently
+- Implement proper data retention policies
+- Provide user controls for data management
+- Comply with App Store review guidelines
+
+## Version Management
+- Use semantic versioning for app releases
+- Maintain proper build numbers for TestFlight/App Store
+- Include version-specific migration logic
+- Handle backward compatibility with older app versions
+- Provide clear release notes for user updates
+
+## Debugging & Analytics
+- Include proper logging configuration for different build types
+- Implement crash reporting with privacy considerations
+- Add performance monitoring without compromising user privacy
+- Include debug-only features for development builds
+- Configure proper analytics with user consent

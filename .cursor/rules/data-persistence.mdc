@@ -1,0 +1,74 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - Data Persistence & Storage
+
+## Local Data Management
+Reference [LocalDataSource.swift](mdc:ShootVeil/Services/LocalDataSource.swift) for data persistence patterns:
+
+### Data Storage Strategy
+- Use UserDefaults for simple app settings and preferences
+- Implement CoreData or SwiftData for complex relational data
+- Store images in Documents directory with proper file management
+- Cache API responses with appropriate expiration policies
+- Use Keychain for sensitive data like API keys
+
+### Capture History Storage
+- Store capture metadata with complete context information
+- Maintain references to original images with efficient storage
+- Implement proper data archiving for long-term storage
+- Provide data export capabilities for user backup
+- Handle storage quota limits with user notification
+
+### Data Structure Organization
+Reference [CaptureMetadata.swift](mdc:ShootVeil/Models/CaptureMetadata.swift) for data models:
+- Use consistent data models across the app
+- Implement proper Codable conformance for serialization
+- Include version information for data migration
+- Design extensible structures for future feature additions
+- Maintain backward compatibility with older data formats
+
+## Performance Considerations
+- Implement lazy loading for large datasets
+- Use background queues for data operations
+- Cache frequently accessed data appropriately
+- Implement proper memory management for image data
+- Optimize database queries for better performance
+
+## Data Synchronization
+- Implement proper conflict resolution for concurrent access
+- Use appropriate locking mechanisms for thread safety
+- Handle app lifecycle transitions gracefully
+- Implement proper data validation before persistence
+- Provide data integrity checks and recovery mechanisms
+
+## Privacy & Security
+- Encrypt sensitive user data at rest
+- Implement proper data cleanup on app uninstall
+- Handle location data with appropriate privacy controls
+- Provide user controls for data deletion
+- Comply with privacy regulations for data retention
+
+## Sharing & Export
+Reference [ShareManager.swift](mdc:ShootVeil/Services/ShareManager.swift) for sharing functionality:
+- Implement multiple export formats (JSON, CSV, etc.)
+- Handle image sharing with proper metadata preservation
+- Provide selective data sharing options
+- Include proper attribution and source information
+- Handle large dataset exports efficiently
+
+## Migration & Versioning
+- Implement proper data migration strategies
+- Handle version upgrades gracefully
+- Provide rollback mechanisms for failed migrations
+- Test migration paths thoroughly
+- Maintain data integrity during version transitions
+
+## Backup & Recovery
+- Implement automatic backup strategies
+- Provide manual backup/restore functionality
+- Handle corrupted data recovery
+- Include data validation and repair utilities
+- Ensure backup data portability across devices

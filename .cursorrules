@@ -1,0 +1,70 @@
+# Spot-it iOS App - Cursor AI Rules
+
+## Project Context
+This is an iOS app called "Spot-it" built with SwiftUI that uses AI to identify buildings, landmarks, and aircraft from camera photos using GPS, compass, and spatial metadata.
+
+## AI Behavior Rules
+- **ONLY CHANGE WHAT IS SPECIFICALLY REQUESTED**: Never make additional changes, improvements, or modifications beyond what the user explicitly asks for
+- If the user asks to fix one thing, don't "improve" other parts of the code
+- If the user asks for a specific feature, don't add related features unless explicitly requested
+- Always ask for clarification if the request is unclear rather than making assumptions
+- Respect the existing code structure and style unless specifically asked to change it
+
+## Code Style & Standards
+- Use SwiftUI and modern Swift 5+ features
+- Follow Apple's Swift naming conventions (camelCase for variables/functions, PascalCase for types)
+- Prefer struct over class when possible for better performance
+- Use @State, @StateObject, @ObservedObject appropriately
+- Always use proper error handling with do-catch blocks
+- Include print statements for debugging with clear prefixes (🎯, ✅, ❌, 📸, etc.)
+
+## Architecture Rules
+- Follow MVVM pattern with SwiftUI
+- Keep Views lightweight, move business logic to separate managers
+- Use proper dependency injection
+- Implement async/await for API calls
+- Use proper memory management and avoid retain cycles
+
+## UI/UX Guidelines
+- Use consistent color scheme: Blue (#0066CC), Orange (#FF6600), Purple (#6600CC)
+- Follow iOS Human Interface Guidelines
+- Use SF Symbols for icons
+- Implement proper loading states and error handling
+- Use haptic feedback for user interactions
+- Ensure accessibility support
+
+## API Integration
+- Always handle network errors gracefully
+- Use proper timeout values for API calls
+- Implement retry logic for failed requests
+- Cache responses when appropriate
+- Include proper API key management
+
+## Performance
+- Optimize image processing and memory usage
+- Use lazy loading for lists and grids
+- Implement proper background processing for heavy tasks
+- Use @MainActor for UI updates
+- Avoid blocking the main thread
+
+## Testing & Debugging
+- Include comprehensive print statements for debugging
+- Use meaningful variable and function names
+- Comment complex algorithms
+- Handle edge cases properly
+- Test on both simulator and device
+
+## Specific to Spot-it App
+- Always handle camera permissions properly
+- Include location accuracy checks
+- Use proper coordinate transformations for mapping
+- Handle different capture modes (landmark, aircraft, boat)
+- Implement proper history management and persistence
+- Use CoreLocation best practices for GPS accuracy
+
+## Code Generation Preferences
+- Generate complete, working code rather than snippets
+- Include proper imports and dependencies
+- Add comprehensive error handling
+- Use modern SwiftUI patterns and modifiers
+- Include proper documentation comments for complex functions

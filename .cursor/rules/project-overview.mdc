@@ -1,0 +1,39 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - Project Overview
+
+## Project Context
+This is an iOS app called "Spot-it" built with SwiftUI that uses AI to identify buildings, landmarks, and aircraft from camera photos using GPS, compass, and spatial metadata.
+
+## Architecture Overview
+The app follows MVVM pattern with SwiftUI and is organized into several key components:
+
+### Main App Entry Point
+- [ShootVeilApp.swift](mdc:ShootVeil/ShootVeilApp.swift) - App entry point
+- [ContentView.swift](mdc:ShootVeil/ContentView.swift) - Main view controller with camera functionality
+
+### Views Structure
+- [WelcomeView.swift](mdc:ShootVeil/Views/WelcomeView.swift) - App introduction and onboarding
+- [SplashView.swift](mdc:ShootVeil/Views/SplashView.swift) - Launch screen
+- [ResultsView.swift](mdc:ShootVeil/Views/ResultsView.swift) - Display identification results
+- [HistoryView.swift](mdc:ShootVeil/Views/HistoryView.swift) - Historical captures and results
+- [SettingsView.swift](mdc:ShootVeil/Views/SettingsView.swift) - App settings and configuration
+
+### Core Services
+- [CameraManager.swift](mdc:ShootVeil/Services/CameraManager.swift) - Camera functionality and photo capture
+- [LocationManager.swift](mdc:ShootVeil/Services/LocationManager.swift) - GPS and location services
+- [IdentificationManager.swift](mdc:ShootVeil/Services/IdentificationManager.swift) - AI identification logic
+- [GoogleAPIManager.swift](mdc:ShootVeil/Services/GoogleAPIManager.swift) - Google APIs integration
+- [FlightAwareManager.swift](mdc:ShootVeil/Services/FlightAwareManager.swift) - Aircraft identification
+- [ShareManager.swift](mdc:ShootVeil/Services/ShareManager.swift) - Content sharing functionality
+- [LocalDataSource.swift](mdc:ShootVeil/Services/LocalDataSource.swift) - Local data persistence
+
+### Data Models
+- [CaptureMetadata.swift](mdc:ShootVeil/Models/CaptureMetadata.swift) - Data structures for capture metadata
+
+### Configuration
+- [ShootVeil.entitlements](mdc:ShootVeil/ShootVeil.entitlements) - App permissions and entitlements
+- [Info.plist](mdc:ShootVeil/Info.plist) - App configuration and permissions

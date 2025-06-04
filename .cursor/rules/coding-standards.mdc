@@ -1,0 +1,44 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - Coding Standards
+
+## AI Behavior Rules
+- **ONLY CHANGE WHAT IS SPECIFICALLY REQUESTED**: Never make additional changes, improvements, or modifications beyond what the user explicitly asks for
+- If the user asks to fix one thing, don't "improve" other parts of the code
+- If the user asks for a specific feature, don't add related features unless explicitly requested
+- Always ask for clarification if the request is unclear rather than making assumptions
+- Respect the existing code structure and style unless specifically asked to change it
+
+## Swift & SwiftUI Standards
+- Use SwiftUI and modern Swift 5+ features
+- Follow Apple's Swift naming conventions (camelCase for variables/functions, PascalCase for types)
+- Prefer struct over class when possible for better performance
+- Use @State, @StateObject, @ObservedObject appropriately
+- Always use proper error handling with do-catch blocks
+- Include print statements for debugging with clear prefixes (🎯, ✅, ❌, 📸, etc.)
+
+## Architecture Patterns
+- Follow MVVM pattern with SwiftUI as seen in [ContentView.swift](mdc:ShootVeil/ContentView.swift)
+- Keep Views lightweight, move business logic to Services like [IdentificationManager.swift](mdc:ShootVeil/Services/IdentificationManager.swift)
+- Use proper dependency injection
+- Implement async/await for API calls as implemented in [GoogleAPIManager.swift](mdc:ShootVeil/Services/GoogleAPIManager.swift)
+- Use proper memory management and avoid retain cycles
+
+## Code Generation Preferences
+- Generate complete, working code rather than snippets
+- Include proper imports and dependencies
+- Add comprehensive error handling
+- Use modern SwiftUI patterns and modifiers
+- Include proper documentation comments for complex functions
+- Always use @MainActor for UI updates
+- Avoid blocking the main thread
+
+## Testing & Debugging
+- Include comprehensive print statements for debugging
+- Use meaningful variable and function names
+- Comment complex algorithms
+- Handle edge cases properly
+- Test on both simulator and device

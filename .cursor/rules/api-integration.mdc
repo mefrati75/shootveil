@@ -1,0 +1,72 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - API Integration Guidelines
+
+## Core API Services
+
+### Google APIs Integration
+Reference [GoogleAPIManager.swift](mdc:ShootVeil/Services/GoogleAPIManager.swift) for implementation patterns:
+- Handle Google Vision API for landmark detection
+- Implement Google Places API for location enrichment
+- Use Google Geocoding API for coordinate conversion
+- Always include proper API key management and rotation
+- Implement proper timeout values (30 seconds for most calls)
+- Include retry logic for failed requests with exponential backoff
+
+### FlightAware Integration
+Reference [FlightAwareManager.swift](mdc:ShootVeil/Services/FlightAwareManager.swift) for aircraft identification:
+- Handle FlightAware API for aircraft identification
+- Process spatial coordinates for aircraft tracking
+- Include proper error handling for aviation data
+- Cache flight information when appropriate
+- Handle rate limiting properly
+
+## Network Best Practices
+- Always handle network errors gracefully with user-friendly messages
+- Use proper timeout values for different types of requests:
+  - Standard API calls: 30 seconds
+  - Image upload/processing: 60 seconds
+  - Background sync: 15 seconds
+- Implement comprehensive retry logic with exponential backoff
+- Cache responses when appropriate to reduce API calls
+- Include proper API key management with secure storage
+
+## Error Handling Patterns
+```swift
+// Example error handling pattern to follow
+do {
+    let result = try await apiCall()
+    print("✅ API call successful: \(result)")
+    return result
+} catch let error as NetworkError {
+    print("❌ Network error: \(error.localizedDescription)")
+    throw error
+} catch {
+    print("❌ Unexpected error: \(error)")
+    throw APIError.unexpectedError(error)
+}
+```
+
+## Request/Response Management
+- Use proper HTTP status code handling
+- Implement request/response logging for debugging
+- Include proper headers for API authentication
+- Use JSON encoding/decoding with proper error handling
+- Implement request cancellation for user-initiated cancellations
+
+## Data Processing
+- Process API responses on background threads
+- Update UI on main thread using @MainActor
+- Validate API response data before processing
+- Transform API data to app models in dedicated methods
+- Handle partial failures gracefully (some data available, some failed)
+
+## Security Considerations
+- Never expose API keys in client code
+- Use secure storage for sensitive API credentials
+- Implement certificate pinning where appropriate
+- Validate SSL certificates in production
+- Use HTTPS for all API communications

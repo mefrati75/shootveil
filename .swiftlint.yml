@@ -1,0 +1,103 @@
+# SwiftLint Configuration for Spot-it iOS App
+
+# Paths to exclude from linting
+excluded:
+  - Pods
+  - DerivedData
+  - Build
+  - .build
+
+# Paths to include for linting
+included:
+  - ShootVeil
+
+# Rules to disable
+disabled_rules:
+  - trailing_whitespace # Allow trailing whitespace for now
+  - line_length # We'll use a custom line length
+  - type_name # Allow custom type naming
+
+# Rules to enable
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - first_where
+  - force_unwrapping
+  - implicit_return
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - vertical_parameter_alignment_on_call
+
+# Custom rule configurations
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_comments: true
+
+function_body_length:
+  warning: 50
+  error: 100
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 1000
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+nesting:
+  type_level:
+    warning: 3
+    error: 6
+  statement_level:
+    warning: 5
+    error: 10
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 100
+  excluded:
+    - id
+    - x
+    - y
+    - z
+
+# Force unwrapping configuration
+force_unwrapping:
+  severity: error
+
+# Custom rules
+custom_rules:
+  # Ensure proper spacing around operators
+  operator_usage_whitespace:
+    name: "Operator Usage Whitespace"
+    regex: '\w+\s*[=+\-*/%<>!&|^]+\s*\w+'
+    message: "Operators should be surrounded by whitespace"
+    severity: warning
+
+  # Prefer print statements with emoji prefixes for debugging
+  debug_print_format:
+    name: "Debug Print Format"
+    regex: 'print\("(?![🎯✅❌📸📍🔍⚠️💾🚀])'
+    message: "Use emoji prefixes for print statements (🎯, ✅, ❌, 📸, etc.)"
+    severity: warning
+
+  # Ensure proper TODO format
+  todo_format:
+    name: "TODO Format"
+    regex: '// TODO(?!:)'
+    message: "TODO should be followed by a colon: // TODO:"
+    severity: warning
+
+reporter: "xcode" 

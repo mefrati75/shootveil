@@ -1,0 +1,58 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - UI/UX Guidelines
+
+## Design System
+- Use consistent color scheme: Blue (#0066CC), Orange (#FF6600), Purple (#6600CC)
+- Follow iOS Human Interface Guidelines
+- Use SF Symbols for icons throughout the app
+- Implement proper loading states and error handling
+- Use haptic feedback for user interactions
+- Ensure accessibility support with proper labels and VoiceOver
+
+## View-Specific Guidelines
+
+### Main Camera Interface
+Reference [ContentView.swift](mdc:ShootVeil/ContentView.swift) for the main camera implementation:
+- Keep camera controls intuitive and easily accessible
+- Provide clear visual feedback for capture states
+- Display GPS accuracy indicators
+- Show appropriate mode indicators (landmark, aircraft, boat)
+
+### Results Display
+Reference [ResultsView.swift](mdc:ShootVeil/Views/ResultsView.swift) for results presentation:
+- Present identification results with clear visual hierarchy
+- Include confidence scores and metadata
+- Provide share functionality with proper formatting
+- Show location information when available
+
+### History Management
+Reference [HistoryView.swift](mdc:ShootVeil/Views/HistoryView.swift) for historical data:
+- Implement lazy loading for performance
+- Use proper list organization and filtering
+- Provide search and sort functionality
+- Enable swipe actions for item management
+
+### Settings & Configuration
+Reference [SettingsView.swift](mdc:ShootVeil/Views/SettingsView.swift) for app configuration:
+- Group related settings logically
+- Provide clear descriptions for each setting
+- Include proper validation for user inputs
+- Show current permission states
+
+## User Experience Patterns
+- Always request permissions with proper context and explanation
+- Provide clear onboarding experience through [WelcomeView.swift](mdc:ShootVeil/Views/WelcomeView.swift)
+- Implement smooth transitions between different app states
+- Handle edge cases gracefully with user-friendly error messages
+- Maintain consistent navigation patterns throughout the app
+
+## Performance Considerations
+- Optimize image processing and memory usage
+- Use lazy loading for lists and grids
+- Implement proper background processing for heavy tasks
+- Avoid blocking the main thread with camera operations
+- Cache responses when appropriate to improve user experience

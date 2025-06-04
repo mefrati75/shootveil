@@ -1,0 +1,85 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Spot-it iOS App - Camera & Location Features
+
+## Camera Management
+Reference [CameraManager.swift](mdc:ShootVeil/Services/CameraManager.swift) for camera implementation:
+
+### Camera Permissions
+- Always request camera permissions with proper context
+- Handle permission denial gracefully with user guidance
+- Check permission status before attempting camera operations
+- Provide clear instructions for enabling permissions in Settings
+
+### Camera Configuration
+- Configure camera settings for optimal image quality
+- Handle different device capabilities (older vs newer devices)
+- Implement proper focus and exposure controls
+- Support different capture modes based on identification type
+
+### Image Processing
+- Optimize image processing for memory efficiency
+- Implement proper image compression for API uploads
+- Handle different image orientations correctly
+- Process images on background threads to avoid UI blocking
+
+## Location Services
+Reference [LocationManager.swift](mdc:ShootVeil/Services/LocationManager.swift) for location implementation:
+
+### GPS Accuracy Requirements
+- Require GPS accuracy better than 100 meters for reliable identification
+- Display accuracy indicators to users
+- Handle location permission requests with clear explanations
+- Implement proper error handling for location failures
+
+### Spatial Metadata Collection
+Reference [CaptureMetadata.swift](mdc:ShootVeil/Models/CaptureMetadata.swift) for data structure:
+- Capture GPS coordinates with high precision
+- Record compass heading for directional context
+- Include altitude information when available
+- Store timestamp with timezone information
+- Record device orientation during capture
+
+### Location Best Practices
+- Use CoreLocation best practices for battery optimization
+- Stop location services when not actively needed
+- Handle background location requirements properly
+- Implement proper coordinate transformations for mapping
+
+## Capture Modes
+Handle different identification types with mode-specific logic:
+
+### Landmark Detection
+- Use high-resolution capture for architectural details
+- Include wide-angle context when possible
+- Optimize for daylight and well-lit conditions
+- Process building and monument identification
+
+### Aircraft Identification
+- Capture at maximum resolution for distant objects
+- Include sky background for better AI processing
+- Use burst mode for moving targets when available
+- Process flight tracking data integration
+
+### Marine Vessel Detection
+- Handle water-based photography challenges
+- Account for reflective surfaces and lighting
+- Include horizon context for better identification
+- Process maritime tracking data when available
+
+## Integration with Identification
+Reference [IdentificationManager.swift](mdc:ShootVeil/Services/IdentificationManager.swift):
+- Combine camera data with location metadata
+- Process spatial context for better AI accuracy
+- Handle multiple identification sources simultaneously
+- Validate results against location plausibility
+
+## Performance Optimization
+- Use efficient memory management for high-resolution images
+- Implement proper camera session lifecycle management
+- Optimize location services for battery life
+- Cache location data appropriately to reduce GPS usage
+- Handle camera interruptions (calls, background) gracefully

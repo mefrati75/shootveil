@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>ShootVeil uses the camera to capture photos for intelligent object identification of buildings, landmarks, and aircraft.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ShootVeil needs location access to provide spatial context for accurate identification of objects in your photos.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>ShootVeil needs location access to provide spatial context for accurate identification of objects in your photos.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>ShootVeil uses motion sensors to determine device orientation for precise spatial calculations.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ShootVeil needs access to your photo library to save watermarked photos with intelligent identification results.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ShootVeil saves watermarked photos with AI-generated metadata and identification results to your photo library.</string>
+	<key>CFBundleDisplayName</key>
+	<string>ShootVeil</string>
+	<key>CFBundleIdentifier</key>
+	<string>elah.ShootVeil</string>
+	<key>CFBundleName</key>
+	<string>ShootVeil</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSRequiresIPhoneOS</key>
+	<string>true</string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>location-services</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-7699624044669714~9188572768</string>
+</dict>
+</plist>
