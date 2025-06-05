@@ -1083,106 +1083,133 @@ struct ObjectSelectionView: View {
     @State private var showingTapIndicator = false
     @State private var tapIndicatorLocation: CGPoint = .zero
     @StateObject private var identificationManager = IdentificationManager.shared
+    @StateObject private var unvealCalculator = UnvealCalculator.shared
+
+    // MARK: - Unveal v1.0 Integration
+    @State private var unvealResult: UnvealResult?
+    @State private var showingUnvealFeedback = false
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-                GeometryReader { geometry in
-                    VStack(spacing: 0) {
-                        // Image section - 70% of screen height
-                        ZStack {
-                            Image(uiImage: capturedImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipped()
-                                .onTapGesture { location in
-                                    handleImageTap(at: location, in: geometry)
-                                }
-
-                            // Center crosshair indicator (same as camera view)
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-                                    ZStack {
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.8), lineWidth: 2)
-                                            .frame(width: 60, height: 60)
-
-                                        Circle()
-                                            .stroke(Color.red.opacity(0.6), lineWidth: 1)
-                                            .frame(width: 30, height: 30)
-
-                                        // Center dot
-                                        Circle()
-                                            .fill(Color.red)
-                                            .frame(width: 4, height: 4)
-
-                                        // Cross lines
-                                        Rectangle()
-                                            .fill(Color.white.opacity(0.8))
-                                            .frame(width: 20, height: 1)
-
-                                        Rectangle()
-                                            .fill(Color.white.opacity(0.8))
-                                            .frame(width: 1, height: 20)
-                                    }
-                                    Spacer()
-                                }
-                                Spacer()
-                            }
-                            .allowsHitTesting(false)
-
-                            // Tap indicator
-                            if showingTapIndicator {
-                                TapIndicatorView()
-                                    .position(tapIndicatorLocation)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showingTapIndicator)
-                            }
+            VStack(spacing: 0) {
+                // Image with tap detection
+                ZStack {
+                    Image(uiImage: capturedImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .onTapGesture { location in
+                            handleObjectTap(at: location)
                         }
-                        .frame(height: geometry.size.height * 0.7)
-                        .background(Color.black)
 
-                        // Instructions/Processing section - 30% of screen height
+                    // Tap indicator
+                    if showingTapIndicator, let tapLocation = objectTapLocation {
+                        Circle()
+                            .stroke(Color.red, lineWidth: 3)
+                            .frame(width: 60, height: 60)
+                            .position(tapLocation)
+                            .animation(.easeInOut(duration: 0.3), value: showingTapIndicator)
+                    }
+
+                    // Processing overlay
+                    if isProcessing {
                         VStack(spacing: 16) {
-                            if isProcessing {
-                                ProcessingView(
-                                    progress: processingProgress,
-                                    status: processingStatus
-                                )
-                            } else {
-                                InstructionView(captureMode: captureMode)
+                            ProgressView(value: processingProgress)
+                                .progressViewStyle(LinearProgressViewStyle(tint: .white))
+                                .frame(width: 200)
+
+                            Text(processingStatus)
+                                .foregroundColor(.white)
+                                .font(.caption)
+                        }
+                        .padding()
+                        .background(Color.black.opacity(0.7))
+                        .cornerRadius(12)
+                    }
+                }
+                .frame(maxHeight: .infinity)
+
+                // Bottom instruction panel
+                VStack(spacing: 16) {
+                    if objectTapLocation == nil {
+                        Text("👆 Tap on what you want to identify in the photo")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    } else {
+                        VStack(spacing: 12) {
+                            Text("🎯 Object marked for identification")
+                                .font(.headline)
+                                .foregroundColor(.green)
+
+                            Button(action: processIdentification) {
+                                Text("🧠 Identify with Unveal v1.0")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.blue)
+                                    .cornerRadius(12)
+                            }
+                            .disabled(isProcessing)
+                            .padding(.horizontal)
+
+                            // Show Unveal feedback button after identification
+                            if let unvealResult = unvealResult {
+                                Button(action: {
+                                    showingUnvealFeedback = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "brain.head.profile")
+                                            .font(.title3)
+                                        Text("Help Train Unveal v1.0")
+                                            .fontWeight(.medium)
+                                    }
+                                    .foregroundColor(.purple)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.purple.opacity(0.1))
+                                    .cornerRadius(12)
+                                }
+                                .padding(.horizontal)
                             }
                         }
-                        .frame(height: geometry.size.height * 0.3)
-                        .frame(maxWidth: .infinity)
-                        .background(Color(.systemBackground))
-                        .padding()
+                    }
+
+                    Button(action: onDismiss) {
+                        Text("Cancel")
+                            .foregroundColor(.gray)
+                            .padding()
                     }
                 }
+                .padding(.bottom, 32)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.clear, Color.black.opacity(0.8)]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
             }
-            .navigationTitle("What is it?")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("← Back") {
-                        onDismiss()
+        }
+        .sheet(isPresented: $showingUnvealFeedback) {
+            if let unvealResult = unvealResult {
+                UnvealFeedbackView(
+                    unvealResult: unvealResult,
+                    originalImage: capturedImage,
+                    onFeedbackSubmitted: {
+                        print("🎓 Unveal v1.0 training data submitted!")
                     }
-                    .foregroundColor(.white)
-                }
+                )
             }
         }
     }
 
-    private func handleImageTap(at location: CGPoint, in geometry: GeometryProxy) {
-        guard !isProcessing else { return }
-
-        print("🎯 User tapped at location: \(location)")
-
-        // Store tap location and show indicator
+    private func handleObjectTap(at location: CGPoint) {
         objectTapLocation = location
         tapIndicatorLocation = location
         showingTapIndicator = true
@@ -1191,239 +1218,116 @@ struct ObjectSelectionView: View {
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
 
-        // Start identification process
-        startIdentification(at: location, in: geometry)
+        // Hide indicator after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            showingTapIndicator = false
+        }
     }
 
-    private func startIdentification(at tapLocation: CGPoint, in geometry: GeometryProxy) {
+    private func processIdentification() {
+        guard let tapLocation = objectTapLocation else { return }
+
         isProcessing = true
         processingProgress = 0.0
+        processingStatus = "🧠 Unveal v1.0: Calculating target location..."
 
-        // Animate processing steps
-        animateProcessingSteps()
+        // Step 1: Unveal v1.0 Calculation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            processingProgress = 0.2
+            processingStatus = "📍 Analyzing GPS and compass data..."
 
-        // Calculate object marking relative to image
-        let imageFrame = calculateImageFrame(in: geometry)
-        let relativeLocation = convertTapToImageCoordinates(
-            tapLocation: tapLocation,
-            imageFrame: imageFrame,
-            imageSize: capturedImage.size
-        )
+            // Calculate using Unveal v1.0
+            let estimatedDistance = calculateEstimatedDistance(tapLocation: tapLocation)
 
-        print("🎯 Relative tap location in image: \(relativeLocation)")
+            let unvealResult = unvealCalculator.calculateTargetLocation(
+                userLocation: metadata.gpsCoordinate,
+                heading: metadata.heading,
+                distance: estimatedDistance,
+                zoomFactor: metadata.zoomFactor,
+                fieldOfView: metadata.effectiveFieldOfView,
+                altitude: metadata.altitude,
+                deviceOrientation: "portrait", // Could get from metadata
+                timestamp: metadata.timestamp
+            )
 
-        // Use IdentificationManager for real processing
-        Task {
-            do {
-                let results = try await identificationManager.identifyObjects(
-                    image: capturedImage,
-                    metadata: metadata,
-                    tapLocation: relativeLocation,
-                    captureMode: captureMode
-                )
+            self.unvealResult = unvealResult
 
-                await MainActor.run {
-                    isProcessing = false
-                    showingTapIndicator = false
+            // Step 2: AI Identification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                processingProgress = 0.6
+                processingStatus = "🔍 AI identification in progress..."
 
-                    // Success haptic feedback
-                    let successFeedback = UINotificationFeedbackGenerator()
-                    successFeedback.notificationOccurred(.success)
+                Task {
+                    do {
+                        // Use existing identification methods with tap location
+                        let (buildings, aircraft) = try await identificationManager.identifyObjects(
+                            image: capturedImage,
+                            metadata: metadata,
+                            tapLocation: tapLocation,
+                            captureMode: captureMode
+                        )
 
-                    // For now, call completion (results will be handled in ResultsView)
-                    onIdentificationComplete(IdentificationResult(
-                        id: UUID().uuidString,
-                        type: captureMode == .landmark ? .landmark : .aircraft,
-                        confidence: 0.95,
-                        name: "Sample Result",
-                        description: "Description for tapped object",
-                        distance: 100.0,
-                        additionalInfo: [:],
-                        timestamp: Date()
-                    ))
-                }
-            } catch {
-                await MainActor.run {
-                    isProcessing = false
-                    showingTapIndicator = false
+                        await MainActor.run {
+                            processingProgress = 1.0
+                            processingStatus = "✅ Identification complete!"
 
-                    // Error haptic feedback
-                    let errorFeedback = UINotificationFeedbackGenerator()
-                    errorFeedback.notificationOccurred(.error)
+                            // Create and return result
+                            let result = IdentificationResult(
+                                id: UUID().uuidString,
+                                type: captureMode == .landmark ? .landmark : .aircraft,
+                                confidence: unvealResult.confidence,
+                                name: buildings.first?.name ?? aircraft.first?.flightNumber ?? "Unknown Object",
+                                description: "Identified using Unveal v1.0 with \(String(format: "%.1f%%", unvealResult.confidence * 100)) confidence",
+                                distance: estimatedDistance,
+                                additionalInfo: [
+                                    "unveal_version": "1.0",
+                                    "calculation_method": unvealResult.calculationMethod,
+                                    "target_coordinates": "\(unvealResult.targetCoordinates.latitude), \(unvealResult.targetCoordinates.longitude)"
+                                ],
+                                timestamp: Date()
+                            )
 
-                    print("❌ Identification failed: \(error)")
-                    // Show error and allow retry
-                    processingStatus = "Identification failed. Tap to try again."
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isProcessing = false
+                                onIdentificationComplete(result)
+                            }
+                        }
+
+                    } catch {
+                        await MainActor.run {
+                            print("❌ Identification failed: \(error)")
+                            processingStatus = "❌ Identification failed"
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                isProcessing = false
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    private func animateProcessingSteps() {
-        let steps = [
-            (0.3, "🔍 Calculating distance..."),
-            (0.6, "📍 Finding location..."),
-            (0.9, "🔎 Identifying object...")
-        ]
-
-        var currentStep = 0
-
-        func animateNextStep() {
-            guard currentStep < steps.count else {
-                processingProgress = 1.0
-                processingStatus = "Almost done..."
-                return
-            }
-
-            let (progress, message) = steps[currentStep]
-            processingProgress = progress
-            processingStatus = message
-
-            currentStep += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                animateNextStep()
-            }
-        }
-
-        animateNextStep()
-    }
-
-    private func calculateImageFrame(in geometry: GeometryProxy) -> CGRect {
-        let containerSize = CGSize(width: geometry.size.width, height: geometry.size.height * 0.7)
+    private func calculateEstimatedDistance(tapLocation: CGPoint) -> Double {
+        // Enhanced distance calculation using tap location and image analysis
         let imageSize = capturedImage.size
-        let aspectRatio = imageSize.width / imageSize.height
+        let centerPoint = CGPoint(x: imageSize.width / 2, y: imageSize.height / 2)
 
-        let containerAspectRatio = containerSize.width / containerSize.height
+        // Calculate offset from center
+        let offsetX = abs(tapLocation.x - centerPoint.x)
+        let offsetY = abs(tapLocation.y - centerPoint.y)
+        let totalOffset = sqrt(offsetX * offsetX + offsetY * offsetY)
 
-        if aspectRatio > containerAspectRatio {
-            // Image is wider than container
-            let scaledHeight = containerSize.width / aspectRatio
-            let yOffset = (containerSize.height - scaledHeight) / 2
-            return CGRect(x: 0, y: yOffset, width: containerSize.width, height: scaledHeight)
-        } else {
-            // Image is taller than container
-            let scaledWidth = containerSize.height * aspectRatio
-            let xOffset = (containerSize.width - scaledWidth) / 2
-            return CGRect(x: xOffset, y: 0, width: scaledWidth, height: containerSize.height)
-        }
-    }
+        // Base distance calculation (simplified)
+        let baseDistance = 100.0 + (Double(totalOffset) * 2.0)
 
-    private func convertTapToImageCoordinates(tapLocation: CGPoint, imageFrame: CGRect, imageSize: CGSize) -> CGPoint {
-        // Convert tap location relative to the displayed image to actual image coordinates
-        let relativeX = (tapLocation.x - imageFrame.minX) / imageFrame.width
-        let relativeY = (tapLocation.y - imageFrame.minY) / imageFrame.height
+        // Adjust for zoom factor
+        let zoomAdjustedDistance = baseDistance / metadata.zoomFactor
 
-        // Clamp to image bounds
-        let clampedX = max(0, min(1, relativeX))
-        let clampedY = max(0, min(1, relativeY))
+        // Adjust for altitude (higher altitude = further objects)
+        let altitudeAdjustedDistance = zoomAdjustedDistance + (metadata.altitude * 0.5)
 
-        // Convert to actual image pixel coordinates
-        return CGPoint(
-            x: clampedX * imageSize.width,
-            y: clampedY * imageSize.height
-        )
-    }
-}
-
-// MARK: - Supporting Views for Object Selection
-
-struct TapIndicatorView: View {
-    @State private var isAnimating = false
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.red, lineWidth: 3)
-                .frame(width: 50, height: 50)
-                .scaleEffect(isAnimating ? 1.5 : 1.0)
-                .opacity(isAnimating ? 0.0 : 1.0)
-
-            Circle()
-                .fill(Color.red.opacity(0.3))
-                .frame(width: 20, height: 20)
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.6)) {
-                isAnimating = true
-            }
-        }
-    }
-}
-
-struct ProcessingView: View {
-    let progress: Double
-    let status: String
-
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                Text("AI Analysis")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text("\(Int(progress * 100))%")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            ProgressView(value: progress, total: 1.0)
-                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                .scaleEffect(y: 2.0) // Make it thicker
-
-            Text(status)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .animation(.easeInOut, value: status)
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-    }
-}
-
-struct InstructionView: View {
-    let captureMode: CaptureMode
-
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: captureMode.icon)
-                    .foregroundColor(captureMode.color)
-                    .font(.title2)
-                Text("Select Target")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("👆 Tap on the \(captureMode.title.lowercased()) you want to identify")
-                    .font(.body)
-                    .fontWeight(.medium)
-
-                Text(getInstructionText())
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-    }
-
-    private func getInstructionText() -> String {
-        switch captureMode {
-        case .landmark:
-            return "Tap on buildings, monuments, or landmarks in your photo for detailed information."
-        case .aircraft:
-            return "Tap on aircraft in the sky to get flight information and details."
-        case .boat:
-            return "Tap on boats or ships to identify vessel information."
-        }
+        return max(50.0, min(altitudeAdjustedDistance, 5000.0)) // Clamp between 50m and 5km
     }
 }
 

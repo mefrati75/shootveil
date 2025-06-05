@@ -7,13 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A09AA5AD2DECF00700C87312 /* ShootVeil.app */ = {isa = PBXBuildFile; productRef = A09AA5AD2DECF00700C87312 /* ShootVeil.app */; };
-		A09AA5BA2DECF00900C87312 /* ShootVeilTests.xctest */ = {isa = PBXBuildFile; productRef = A09AA5BA2DECF00900C87312 /* ShootVeilTests.xctest */; };
-		A09AA5C42DECF00900C87312 /* ShootVeilUITests.xctest */ = {isa = PBXBuildFile; productRef = A09AA5C42DECF00900C87312 /* ShootVeilUITests.xctest */; };
+		A06248E82DEFF5C700BFFFCB /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5ED2DEE8A3400C87312 /* GoogleSignInSwift */; };
 		A09AA5E82DEE8A3400C87312 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5E72DEE8A3400C87312 /* GoogleMobileAds */; };
 		A09AA5EA2DEE8A3400C87312 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5E92DEE8A3400C87312 /* GoogleUserMessagingPlatform */; };
 		A09AA5EC2DEE8A3400C87312 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5EB2DEE8A3400C87312 /* GoogleSignIn */; };
-		A09AA5EE2DEE8A3400C87312 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5EB2DEE8A3400C87312 /* GoogleSignInSwift */; };
+		A09AA5EE2DEE8A3400C87312 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A09AA5EB2DEE8A3400C87312 /* GoogleSignIn */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,10 +73,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A06248E82DEFF5C700BFFFCB /* GoogleSignInSwift in Frameworks */,
 				A09AA5E82DEE8A3400C87312 /* GoogleMobileAds in Frameworks */,
 				A09AA5EA2DEE8A3400C87312 /* GoogleUserMessagingPlatform in Frameworks */,
 				A09AA5EC2DEE8A3400C87312 /* GoogleSignIn in Frameworks */,
-				A09AA5EE2DEE8A3400C87312 /* GoogleSignInSwift in Frameworks */,
+				A09AA5EE2DEE8A3400C87312 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,10 +142,6 @@
 				A09AA5E92DEE8A3400C87312 /* GoogleUserMessagingPlatform */,
 				A09AA5EB2DEE8A3400C87312 /* GoogleSignIn */,
 				A09AA5ED2DEE8A3400C87312 /* GoogleSignInSwift */,
-			);
-			packageReferences = (
-				A09AA5E62DEE8A3400C87312 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
-				A09AA5F02DEE8A3400C87312 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			productName = ShootVeil;
 			productReference = A09AA5AD2DECF00700C87312 /* ShootVeil.app */;
