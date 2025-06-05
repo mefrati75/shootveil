@@ -122,6 +122,14 @@ class CameraManager: NSObject, ObservableObject {
         }
         print("✅ Camera device: \(camera.localizedName)")
 
+        // MARK: - ZOOM SETUP: Initialize zoom limits from device capabilities
+        DispatchQueue.main.async {
+            self.minZoomFactor = camera.minAvailableVideoZoomFactor
+            self.maxZoomFactor = min(camera.maxAvailableVideoZoomFactor, 10.0) // Cap at 10x for better quality
+            self.currentZoomFactor = 1.0
+            print("📷 Zoom limits: \(self.minZoomFactor)x - \(self.maxZoomFactor)x")
+        }
+
         // 3. BASIC session creation (like every other app)
         captureSession = AVCaptureSession()
         captureSession.sessionPreset = .photo
@@ -462,22 +470,63 @@ class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Zoom Functionality
     func setZoom(_ factor: CGFloat) {
-        guard let device = videoDeviceInput?.device else { return }
+        // Handle simulator case
+        if isSimulator {
+            let clampedZoom = max(minZoomFactor, min(factor, maxZoomFactor))
+            DispatchQueue.main.async {
+                self.currentZoomFactor = clampedZoom
+                print("📷 Simulator zoom set to: \(clampedZoom)x")
+            }
+            return
+        }
+
+        // Real device zoom
+        guard let device = videoDeviceInput?.device else {
+            print("❌ No camera device available for zoom")
+            return
+        }
+
+        guard captureSession.isRunning else {
+            print("❌ Camera session not running - cannot set zoom")
+            return
+        }
+
+        // Ensure we have valid zoom limits
+        let actualMinZoom = max(device.minAvailableVideoZoomFactor, 0.5)
+        let actualMaxZoom = min(device.maxAvailableVideoZoomFactor, 10.0)
+        let clampedZoom = max(actualMinZoom, min(factor, actualMaxZoom))
 
         do {
             try device.lockForConfiguration()
 
-            let clampedZoom = max(minZoomFactor, min(factor, maxZoomFactor))
-            device.videoZoomFactor = clampedZoom
+            // Smooth zoom animation
+            device.ramp(toVideoZoomFactor: clampedZoom, withRate: 4.0)
 
+            // Update our state immediately
             DispatchQueue.main.async {
                 self.currentZoomFactor = clampedZoom
+                self.minZoomFactor = actualMinZoom
+                self.maxZoomFactor = actualMaxZoom
             }
 
             device.unlockForConfiguration()
-            print("📷 Zoom set to: \(clampedZoom)x")
+            print("📷 Zoom smoothly set to: \(clampedZoom)x (range: \(actualMinZoom)x - \(actualMaxZoom)x)")
         } catch {
             print("❌ Failed to set zoom: \(error.localizedDescription)")
+
+            // Fallback: try direct assignment without animation
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clampedZoom
+                device.unlockForConfiguration()
+
+                DispatchQueue.main.async {
+                    self.currentZoomFactor = clampedZoom
+                }
+                print("📷 Zoom set directly to: \(clampedZoom)x")
+            } catch {
+                print("❌ Even direct zoom failed: \(error.localizedDescription)")
+            }
         }
     }
 

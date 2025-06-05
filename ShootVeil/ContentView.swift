@@ -456,14 +456,14 @@ struct EnhancedCameraView: View {
 
                                         // Apply zoom with proper constraints
                                         let newZoom = cameraManager.currentZoomFactor * delta
-                                        let clampedZoom = max(0.5, min(newZoom, 10.0))
+                                        let clampedZoom = max(cameraManager.minZoomFactor, min(newZoom, cameraManager.maxZoomFactor))
 
-                                        // Only apply if within valid range
-                                        if abs(clampedZoom - cameraManager.currentZoomFactor) > 0.01 {
+                                        // Only apply if within valid range and significant change
+                                        if abs(clampedZoom - cameraManager.currentZoomFactor) > 0.05 {
                                             cameraManager.setZoom(clampedZoom)
 
                                             // Add haptic feedback for significant changes
-                                            if abs(delta - 1.0) > 0.1 {
+                                            if abs(delta - 1.0) > 0.15 {
                                                 let impact = UIImpactFeedbackGenerator(style: .light)
                                                 impact.impactOccurred()
                                             }
@@ -488,11 +488,13 @@ struct EnhancedCameraView: View {
                                         lastScaleValue = value
 
                                         let newZoom = cameraManager.currentZoomFactor * delta
-                                        let clampedZoom = max(0.5, min(newZoom, 10.0))
+                                        let clampedZoom = max(cameraManager.minZoomFactor, min(newZoom, cameraManager.maxZoomFactor))
                                         cameraManager.currentZoomFactor = clampedZoom
+                                        print("🔍 Simulator zoom: \(clampedZoom)x")
                                     }
                                     .onEnded { _ in
                                         lastScaleValue = 1.0
+                                        print("🔍 Simulator final zoom: \(cameraManager.currentZoomFactor)x")
                                     }
                             )
                     }
@@ -759,19 +761,39 @@ struct ModernCameraOverlay: View {
                         .background(.ultraThinMaterial, in: Capsule())
 
                     VStack(spacing: 8) {
-                        Button(action: { cameraManager.adjustZoom(by: 1.2) }) {
+                        Button(action: {
+                            let newZoom = cameraManager.currentZoomFactor * 1.3
+                            cameraManager.setZoom(newZoom)
+
+                            // Haptic feedback
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+                        }) {
                             Image(systemName: "plus")
                                 .font(.title3)
                                 .fontWeight(.semibold)
                         }
 
-                        Button(action: { cameraManager.resetZoom() }) {
+                        Button(action: {
+                            cameraManager.resetZoom()
+
+                            // Haptic feedback
+                            let impact = UIImpactFeedbackGenerator(style: .medium)
+                            impact.impactOccurred()
+                        }) {
                             Text("1x")
                                 .font(.caption)
                                 .fontWeight(.bold)
                         }
 
-                        Button(action: { cameraManager.adjustZoom(by: 0.8) }) {
+                        Button(action: {
+                            let newZoom = cameraManager.currentZoomFactor / 1.3
+                            cameraManager.setZoom(newZoom)
+
+                            // Haptic feedback
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+                        }) {
                             Image(systemName: "minus")
                                 .font(.title3)
                                 .fontWeight(.semibold)
